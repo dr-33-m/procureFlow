@@ -8,44 +8,148 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from "./routes/__root"
-import { Route as IndexRouteImport } from "./routes/index"
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as ShoppingListsIndexRouteImport } from './routes/shopping-lists/index'
+import { Route as ReceivingIndexRouteImport } from './routes/receiving/index'
+import { Route as PantryIndexRouteImport } from './routes/pantry/index'
+import { Route as IssuanceIndexRouteImport } from './routes/issuance/index'
+import { Route as ShoppingListsCreateRouteImport } from './routes/shopping-lists/create'
 
 const IndexRoute = IndexRouteImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShoppingListsIndexRoute = ShoppingListsIndexRouteImport.update({
+  id: '/shopping-lists/',
+  path: '/shopping-lists/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReceivingIndexRoute = ReceivingIndexRouteImport.update({
+  id: '/receiving/',
+  path: '/receiving/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PantryIndexRoute = PantryIndexRouteImport.update({
+  id: '/pantry/',
+  path: '/pantry/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IssuanceIndexRoute = IssuanceIndexRouteImport.update({
+  id: '/issuance/',
+  path: '/issuance/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShoppingListsCreateRoute = ShoppingListsCreateRouteImport.update({
+  id: '/shopping-lists/create',
+  path: '/shopping-lists/create',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
-  "/": typeof IndexRoute
+  '/': typeof IndexRoute
+  '/shopping-lists/create': typeof ShoppingListsCreateRoute
+  '/issuance/': typeof IssuanceIndexRoute
+  '/pantry/': typeof PantryIndexRoute
+  '/receiving/': typeof ReceivingIndexRoute
+  '/shopping-lists/': typeof ShoppingListsIndexRoute
 }
 export interface FileRoutesByTo {
-  "/": typeof IndexRoute
+  '/': typeof IndexRoute
+  '/shopping-lists/create': typeof ShoppingListsCreateRoute
+  '/issuance': typeof IssuanceIndexRoute
+  '/pantry': typeof PantryIndexRoute
+  '/receiving': typeof ReceivingIndexRoute
+  '/shopping-lists': typeof ShoppingListsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  "/": typeof IndexRoute
+  '/': typeof IndexRoute
+  '/shopping-lists/create': typeof ShoppingListsCreateRoute
+  '/issuance/': typeof IssuanceIndexRoute
+  '/pantry/': typeof PantryIndexRoute
+  '/receiving/': typeof ReceivingIndexRoute
+  '/shopping-lists/': typeof ShoppingListsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: "/"
+  fullPaths:
+    | '/'
+    | '/shopping-lists/create'
+    | '/issuance/'
+    | '/pantry/'
+    | '/receiving/'
+    | '/shopping-lists/'
   fileRoutesByTo: FileRoutesByTo
-  to: "/"
-  id: "__root__" | "/"
+  to:
+    | '/'
+    | '/shopping-lists/create'
+    | '/issuance'
+    | '/pantry'
+    | '/receiving'
+    | '/shopping-lists'
+  id:
+    | '__root__'
+    | '/'
+    | '/shopping-lists/create'
+    | '/issuance/'
+    | '/pantry/'
+    | '/receiving/'
+    | '/shopping-lists/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ShoppingListsCreateRoute: typeof ShoppingListsCreateRoute
+  IssuanceIndexRoute: typeof IssuanceIndexRoute
+  PantryIndexRoute: typeof PantryIndexRoute
+  ReceivingIndexRoute: typeof ReceivingIndexRoute
+  ShoppingListsIndexRoute: typeof ShoppingListsIndexRoute
 }
 
-declare module "@tanstack/react-router" {
+declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    "/": {
-      id: "/"
-      path: "/"
-      fullPath: "/"
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shopping-lists/': {
+      id: '/shopping-lists/'
+      path: '/shopping-lists'
+      fullPath: '/shopping-lists/'
+      preLoaderRoute: typeof ShoppingListsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/receiving/': {
+      id: '/receiving/'
+      path: '/receiving'
+      fullPath: '/receiving/'
+      preLoaderRoute: typeof ReceivingIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pantry/': {
+      id: '/pantry/'
+      path: '/pantry'
+      fullPath: '/pantry/'
+      preLoaderRoute: typeof PantryIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/issuance/': {
+      id: '/issuance/'
+      path: '/issuance'
+      fullPath: '/issuance/'
+      preLoaderRoute: typeof IssuanceIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shopping-lists/create': {
+      id: '/shopping-lists/create'
+      path: '/shopping-lists/create'
+      fullPath: '/shopping-lists/create'
+      preLoaderRoute: typeof ShoppingListsCreateRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -53,14 +157,19 @@ declare module "@tanstack/react-router" {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ShoppingListsCreateRoute: ShoppingListsCreateRoute,
+  IssuanceIndexRoute: IssuanceIndexRoute,
+  PantryIndexRoute: PantryIndexRoute,
+  ReceivingIndexRoute: ReceivingIndexRoute,
+  ShoppingListsIndexRoute: ShoppingListsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
 
-import type { getRouter } from "./router.tsx"
-import type { createStart } from "@tanstack/react-start"
-declare module "@tanstack/react-start" {
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
   interface Register {
     ssr: true
     router: Awaited<ReturnType<typeof getRouter>>

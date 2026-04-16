@@ -1,0 +1,8 @@
+export type UserRole = 'manager' | 'runner'
+export type ListStatus = 'pending' | 'in_progress' | 'completed'
+export type ItemStatus = 'pending' | 'found' | 'not_found' | 'partial'
+export type BatchStatus = 'unverified' | 'verified'
+export type TxType = 'RECEIVE' | 'ISSUE'
+export type Priority = 'normal' | 'urgent'
+export type StockStatus = 'in_stock' | 'low_stock' | 'out_of_stock'
+export type ReceivingItemStatus = 'matched' | 'shortage' | 'pending'
