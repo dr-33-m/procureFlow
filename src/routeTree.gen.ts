@@ -15,6 +15,11 @@ import { Route as ReceivingIndexRouteImport } from './routes/receiving/index'
 import { Route as PantryIndexRouteImport } from './routes/pantry/index'
 import { Route as IssuanceIndexRouteImport } from './routes/issuance/index'
 import { Route as ShoppingListsCreateRouteImport } from './routes/shopping-lists/create'
+import { Route as ReceivingListIdRouteImport } from './routes/receiving/$listId'
+import { Route as IssuanceActivityRouteImport } from './routes/issuance/activity'
+import { Route as ShoppingListsIdIndexRouteImport } from './routes/shopping-lists/$id/index'
+import { Route as ShoppingListsIdRunRouteImport } from './routes/shopping-lists/$id/run'
+import { Route as ShoppingListsIdEditRouteImport } from './routes/shopping-lists/$id/edit'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -46,66 +51,126 @@ const ShoppingListsCreateRoute = ShoppingListsCreateRouteImport.update({
   path: '/shopping-lists/create',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReceivingListIdRoute = ReceivingListIdRouteImport.update({
+  id: '/receiving/$listId',
+  path: '/receiving/$listId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IssuanceActivityRoute = IssuanceActivityRouteImport.update({
+  id: '/issuance/activity',
+  path: '/issuance/activity',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShoppingListsIdIndexRoute = ShoppingListsIdIndexRouteImport.update({
+  id: '/shopping-lists/$id/',
+  path: '/shopping-lists/$id/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShoppingListsIdRunRoute = ShoppingListsIdRunRouteImport.update({
+  id: '/shopping-lists/$id/run',
+  path: '/shopping-lists/$id/run',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShoppingListsIdEditRoute = ShoppingListsIdEditRouteImport.update({
+  id: '/shopping-lists/$id/edit',
+  path: '/shopping-lists/$id/edit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/issuance/activity': typeof IssuanceActivityRoute
+  '/receiving/$listId': typeof ReceivingListIdRoute
   '/shopping-lists/create': typeof ShoppingListsCreateRoute
   '/issuance/': typeof IssuanceIndexRoute
   '/pantry/': typeof PantryIndexRoute
   '/receiving/': typeof ReceivingIndexRoute
   '/shopping-lists/': typeof ShoppingListsIndexRoute
+  '/shopping-lists/$id/edit': typeof ShoppingListsIdEditRoute
+  '/shopping-lists/$id/run': typeof ShoppingListsIdRunRoute
+  '/shopping-lists/$id/': typeof ShoppingListsIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/issuance/activity': typeof IssuanceActivityRoute
+  '/receiving/$listId': typeof ReceivingListIdRoute
   '/shopping-lists/create': typeof ShoppingListsCreateRoute
   '/issuance': typeof IssuanceIndexRoute
   '/pantry': typeof PantryIndexRoute
   '/receiving': typeof ReceivingIndexRoute
   '/shopping-lists': typeof ShoppingListsIndexRoute
+  '/shopping-lists/$id/edit': typeof ShoppingListsIdEditRoute
+  '/shopping-lists/$id/run': typeof ShoppingListsIdRunRoute
+  '/shopping-lists/$id': typeof ShoppingListsIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/issuance/activity': typeof IssuanceActivityRoute
+  '/receiving/$listId': typeof ReceivingListIdRoute
   '/shopping-lists/create': typeof ShoppingListsCreateRoute
   '/issuance/': typeof IssuanceIndexRoute
   '/pantry/': typeof PantryIndexRoute
   '/receiving/': typeof ReceivingIndexRoute
   '/shopping-lists/': typeof ShoppingListsIndexRoute
+  '/shopping-lists/$id/edit': typeof ShoppingListsIdEditRoute
+  '/shopping-lists/$id/run': typeof ShoppingListsIdRunRoute
+  '/shopping-lists/$id/': typeof ShoppingListsIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/issuance/activity'
+    | '/receiving/$listId'
     | '/shopping-lists/create'
     | '/issuance/'
     | '/pantry/'
     | '/receiving/'
     | '/shopping-lists/'
+    | '/shopping-lists/$id/edit'
+    | '/shopping-lists/$id/run'
+    | '/shopping-lists/$id/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/issuance/activity'
+    | '/receiving/$listId'
     | '/shopping-lists/create'
     | '/issuance'
     | '/pantry'
     | '/receiving'
     | '/shopping-lists'
+    | '/shopping-lists/$id/edit'
+    | '/shopping-lists/$id/run'
+    | '/shopping-lists/$id'
   id:
     | '__root__'
     | '/'
+    | '/issuance/activity'
+    | '/receiving/$listId'
     | '/shopping-lists/create'
     | '/issuance/'
     | '/pantry/'
     | '/receiving/'
     | '/shopping-lists/'
+    | '/shopping-lists/$id/edit'
+    | '/shopping-lists/$id/run'
+    | '/shopping-lists/$id/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  IssuanceActivityRoute: typeof IssuanceActivityRoute
+  ReceivingListIdRoute: typeof ReceivingListIdRoute
   ShoppingListsCreateRoute: typeof ShoppingListsCreateRoute
   IssuanceIndexRoute: typeof IssuanceIndexRoute
   PantryIndexRoute: typeof PantryIndexRoute
   ReceivingIndexRoute: typeof ReceivingIndexRoute
   ShoppingListsIndexRoute: typeof ShoppingListsIndexRoute
+  ShoppingListsIdEditRoute: typeof ShoppingListsIdEditRoute
+  ShoppingListsIdRunRoute: typeof ShoppingListsIdRunRoute
+  ShoppingListsIdIndexRoute: typeof ShoppingListsIdIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -152,16 +217,56 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShoppingListsCreateRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/receiving/$listId': {
+      id: '/receiving/$listId'
+      path: '/receiving/$listId'
+      fullPath: '/receiving/$listId'
+      preLoaderRoute: typeof ReceivingListIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/issuance/activity': {
+      id: '/issuance/activity'
+      path: '/issuance/activity'
+      fullPath: '/issuance/activity'
+      preLoaderRoute: typeof IssuanceActivityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shopping-lists/$id/': {
+      id: '/shopping-lists/$id/'
+      path: '/shopping-lists/$id'
+      fullPath: '/shopping-lists/$id/'
+      preLoaderRoute: typeof ShoppingListsIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shopping-lists/$id/run': {
+      id: '/shopping-lists/$id/run'
+      path: '/shopping-lists/$id/run'
+      fullPath: '/shopping-lists/$id/run'
+      preLoaderRoute: typeof ShoppingListsIdRunRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shopping-lists/$id/edit': {
+      id: '/shopping-lists/$id/edit'
+      path: '/shopping-lists/$id/edit'
+      fullPath: '/shopping-lists/$id/edit'
+      preLoaderRoute: typeof ShoppingListsIdEditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  IssuanceActivityRoute: IssuanceActivityRoute,
+  ReceivingListIdRoute: ReceivingListIdRoute,
   ShoppingListsCreateRoute: ShoppingListsCreateRoute,
   IssuanceIndexRoute: IssuanceIndexRoute,
   PantryIndexRoute: PantryIndexRoute,
   ReceivingIndexRoute: ReceivingIndexRoute,
   ShoppingListsIndexRoute: ShoppingListsIndexRoute,
+  ShoppingListsIdEditRoute: ShoppingListsIdEditRoute,
+  ShoppingListsIdRunRoute: ShoppingListsIdRunRoute,
+  ShoppingListsIdIndexRoute: ShoppingListsIdIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -4,6 +4,7 @@ import {
   text,
   timestamp,
   numeric,
+  integer,
   uniqueIndex,
   index,
 } from 'drizzle-orm/pg-core'
@@ -39,13 +40,51 @@ export const products = pgTable(
       .notNull()
       .references(() => hotels.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
-    unit: text('unit').notNull(),
     category: text('category').notNull().default('General'),
     barcode: text('barcode').unique(),
+    parPerGuest: numeric('par_per_guest', { precision: 10, scale: 2 }),
+    // 'stock' | 'base' — the unit parPerGuest is expressed in (e.g. 'base' lets
+    // you say "2 slices/guest" for a loaf-with-slices product).
+    parPerGuestUnit: text('par_per_guest_unit').default('stock'),
+    // Three-level packaging: PURCHASE (case/box) → STOCK (bottle/each) → BASE (ml/g).
+    // stockUnit is the unit the kitchen physically issues at (e.g. loaf, bottle, kg).
+    // Inventory and all transaction quantities are always in stockUnit. Convert
+    // between levels via purchasePackSize and baseUnitsPerStock at write time.
+    stockUnit: text('stock_unit').notNull(),
+    purchaseUnit: text('purchase_unit'),
+    purchasePackSize: numeric('purchase_pack_size', {
+      precision: 10,
+      scale: 4,
+    }),
+    purchasePrice: numeric('purchase_price', { precision: 10, scale: 2 }),
+    baseUnit: text('base_unit'),
+    baseUnitsPerStock: numeric('base_units_per_stock', {
+      precision: 12,
+      scale: 4,
+    }),
+    // Default supplier lead time in days (null → hotel default of 3d).
+    leadTimeDays: integer('lead_time_days'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (t) => [index('idx_products_barcode').on(t.barcode)],
 )
+
+// ─── Product Suppliers ────────────────────────────────────────────────────────
+
+export const productSuppliers = pgTable('product_suppliers', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  productId: uuid('product_id')
+    .notNull()
+    .references(() => products.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  pricePerUnit: numeric('price_per_unit', { precision: 10, scale: 2 }),
+  // 'purchase' | 'stock' | 'base' — which level pricePerUnit is expressed at.
+  // e.g. pricePerUnit=12, priceUnit='purchase' means $12/box.
+  priceUnit: text('price_unit').notNull().default('stock'),
+  // Optional per-supplier lead time override (days).
+  leadTimeDays: integer('lead_time_days'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
 
 // ─── Shopping Lists ──────────────────────────────────────────────────────────
 
@@ -60,6 +99,18 @@ export const shoppingLists = pgTable('shopping_lists', {
   assignedTo: uuid('assigned_to').references(() => users.id),
   status: text('status').notNull().default('pending'),
   totalValue: numeric('total_value', { precision: 10, scale: 2 }).default('0'),
+  // Procurement cycle metadata. periodType is 'weekly' | 'biweekly' | 'monthly' | 'event'.
+  periodType: text('period_type'),
+  periodStart: timestamp('period_start'),
+  periodEnd: timestamp('period_end'),
+  expectedGuestCount: integer('expected_guest_count'),
+  // Legacy single-day guest count (kept for back-compat with event-style lists).
+  guestCount: integer('guest_count'),
+  // Procurement-cycle demand decomposition. UI computes
+  // expectedGuestCount = expectedDailyOccupancy × periodDays × mealsPerDayCount.
+  expectedDailyOccupancy: integer('expected_daily_occupancy'),
+  periodDays: integer('period_days'),
+  mealsPerDayCount: integer('meals_per_day_count').default(1),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at'),
   completedAt: timestamp('completed_at'),
@@ -67,6 +118,7 @@ export const shoppingLists = pgTable('shopping_lists', {
 
 // ─── Shopping List Items ─────────────────────────────────────────────────────
 
+// All quantity fields are interpreted in the product's stockUnit.
 export const shoppingListItems = pgTable('shopping_list_items', {
   id: uuid('id').primaryKey().defaultRandom(),
   shoppingListId: uuid('shopping_list_id')
@@ -81,49 +133,20 @@ export const shoppingListItems = pgTable('shopping_list_items', {
     precision: 10,
     scale: 2,
   }).default('0'),
-  unitPrice: numeric('unit_price', { precision: 10, scale: 2 }).default('0'),
-  status: text('status').notNull().default('pending'),
-  updatedBy: uuid('updated_by').references(() => users.id),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at'),
-})
-
-// ─── Receiving Batches ───────────────────────────────────────────────────────
-
-export const receivingBatches = pgTable('receiving_batches', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  hotelId: uuid('hotel_id')
-    .notNull()
-    .references(() => hotels.id, { onDelete: 'cascade' }),
-  batchRef: text('batch_ref').notNull(),
-  supplierName: text('supplier_name').notNull().default('Unknown Supplier'),
-  shoppingListId: uuid('shopping_list_id').references(() => shoppingLists.id),
-  createdBy: uuid('created_by').references(() => users.id),
-  status: text('status').notNull().default('unverified'),
-  verifiedBy: uuid('verified_by').references(() => users.id),
-  verifiedAt: timestamp('verified_at'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-})
-
-// ─── Receiving Items ─────────────────────────────────────────────────────────
-
-export const receivingItems = pgTable('receiving_items', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  batchId: uuid('batch_id')
-    .notNull()
-    .references(() => receivingBatches.id, { onDelete: 'cascade' }),
-  productId: uuid('product_id').references(() => products.id),
-  expectedQuantity: numeric('expected_quantity', {
-    precision: 10,
-    scale: 2,
-  }),
   receivedQuantity: numeric('received_quantity', {
     precision: 10,
     scale: 2,
-  }),
-  checkedBy: uuid('checked_by').references(() => users.id),
-  checkedAt: timestamp('checked_at'),
+  }).default('0'),
+  pricePerStockUnit: numeric('price_per_stock_unit', {
+    precision: 10,
+    scale: 2,
+  }).default('0'),
+  status: text('status').notNull().default('pending'),
+  // Audit: which unit the requester entered ('purchase' | 'stock'). Stored qty is always stock.
+  requestedUnit: text('requested_unit').default('stock'),
+  updatedBy: uuid('updated_by').references(() => users.id),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at'),
 })
 
 // ─── Inventory ───────────────────────────────────────────────────────────────
@@ -150,6 +173,43 @@ export const inventory = pgTable(
   ],
 )
 
+// ─── Stations ────────────────────────────────────────────────────────────────
+
+export const stations = pgTable('stations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  hotelId: uuid('hotel_id')
+    .notNull()
+    .references(() => hotels.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
+// ─── Product Price History ───────────────────────────────────────────────────
+
+// Append-only log of received prices. Written each time a shopping-list item is
+// approved at receiving. Lets suggestions cost out at the latest real price and
+// surfaces price trends to the manager.
+export const productPriceHistory = pgTable(
+  'product_price_history',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    productId: uuid('product_id')
+      .notNull()
+      .references(() => products.id, { onDelete: 'cascade' }),
+    supplierId: uuid('supplier_id').references(() => productSuppliers.id, {
+      onDelete: 'set null',
+    }),
+    // Always normalized to stock units for easy comparison across receives.
+    pricePerStockUnit: numeric('price_per_stock_unit', {
+      precision: 10,
+      scale: 4,
+    }).notNull(),
+    source: text('source').notNull().default('receive'),
+    receivedAt: timestamp('received_at').defaultNow().notNull(),
+  },
+  (t) => [index('idx_price_history_product').on(t.productId)],
+)
+
 // ─── Inventory Transactions ──────────────────────────────────────────────────
 
 export const inventoryTransactions = pgTable(
@@ -163,7 +223,17 @@ export const inventoryTransactions = pgTable(
       .notNull()
       .references(() => products.id),
     type: text('type').notNull(),
-    quantity: numeric('quantity', { precision: 10, scale: 2 }).notNull(),
+    // Canonical signed quantity in the product's stockUnit. Negative for ISSUE,
+    // positive for RECEIVE. All historical analysis reads this column.
+    quantityStock: numeric('quantity_stock', {
+      precision: 12,
+      scale: 4,
+    }).notNull(),
+    // Audit field: which level the user actually entered ('stock' | 'base' | 'purchase').
+    unitAtEntry: text('unit_at_entry').notNull().default('stock'),
+    // Number of guests served by this issuance (ISSUE only). Powers per-guest
+    // consumption-rate forecasting. Null for RECEIVE rows.
+    guestCount: integer('guest_count'),
     referenceId: uuid('reference_id'),
     referenceType: text('reference_type'),
     method: text('method').notNull().default('manual'),

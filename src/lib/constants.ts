@@ -6,15 +6,6 @@ export const SHIFTS = [
   { label: 'Evening Shift', start: 16, end: 24 },
 ]
 
-export const STATIONS = [
-  'Main Kitchen',
-  'Pastry Section',
-  'Bar',
-  'Banquet Hall',
-  'Room Service',
-  'Main Line Station',
-]
-
 export function getCurrentShift(): string {
   const hour = new Date().getHours()
   if (hour < 8) return 'Night Shift'

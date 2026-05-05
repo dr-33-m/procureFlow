@@ -35,13 +35,29 @@ const statusConfig: Record<
     label: 'Out of Stock',
     className: 'bg-red-100 text-red-700 border-red-200',
   },
+  draft: {
+    label: 'Draft',
+    className: 'bg-muted text-muted-foreground border-border',
+  },
   pending: {
     label: 'Pending',
-    className: 'bg-muted text-muted-foreground border-border',
+    className: 'bg-slate-100 text-slate-600 border-slate-200',
+  },
+  shopping: {
+    label: 'Shopping',
+    className: 'bg-blue-100 text-blue-700 border-blue-200',
+  },
+  in_review: {
+    label: 'In Review',
+    className: 'bg-amber-100 text-amber-700 border-amber-200',
+  },
+  on_hold: {
+    label: 'On Hold',
+    className: 'bg-orange-100 text-orange-700 border-orange-200',
   },
   in_progress: {
     label: 'In Review',
-    className: 'bg-blue-100 text-blue-700 border-blue-200',
+    className: 'bg-amber-100 text-amber-700 border-amber-200',
   },
   completed: {
     label: 'Completed',
@@ -74,6 +90,10 @@ const statusConfig: Record<
   shortage: {
     label: 'Shortage',
     className: 'bg-amber-100 text-amber-700 border-amber-200',
+  },
+  surplus: {
+    label: 'Surplus',
+    className: 'bg-blue-100 text-blue-700 border-blue-200',
   },
   urgent: {
     label: 'Urgent',

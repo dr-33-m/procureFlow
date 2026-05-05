@@ -5,6 +5,7 @@ interface QuantityStepperProps {
   onChange: (value: number) => void
   min?: number
   max?: number
+  disabled?: boolean
   className?: string
 }
 
@@ -13,6 +14,7 @@ export function QuantityStepper({
   onChange,
   min = 0,
   max,
+  disabled = false,
   className,
 }: QuantityStepperProps) {
   const decrement = () => {
@@ -26,18 +28,19 @@ export function QuantityStepper({
   }
 
   return (
-    <div className={cn('flex items-center gap-1', className)}>
+    <div className={cn('flex items-center gap-1', disabled && 'opacity-50 pointer-events-none', className)}>
       <button
         type="button"
         onClick={decrement}
-        disabled={min !== undefined && value <= min}
+        disabled={disabled || (min !== undefined && value <= min)}
         className="flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background text-sm hover:bg-accent disabled:opacity-40"
       >
         −
       </button>
       <input
         type="number"
-        value={value}
+        value={value === 0 ? '' : value}
+        disabled={disabled}
         onChange={(e) => {
           const v = parseInt(e.target.value, 10)
           if (!isNaN(v)) onChange(v)
@@ -47,7 +50,7 @@ export function QuantityStepper({
       <button
         type="button"
         onClick={increment}
-        disabled={max !== undefined && value >= max}
+        disabled={disabled || (max !== undefined && value >= max)}
         className="flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background text-sm hover:bg-accent disabled:opacity-40"
       >
         +
