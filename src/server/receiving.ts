@@ -101,7 +101,7 @@ export const getReceivingLists = createServerFn({ method: 'GET' }).handler(
       .where(
         and(
           eq(shoppingLists.hotelId, hotelId),
-          sql`${shoppingLists.status} IN ('in_review', 'completed')`,
+          sql`${shoppingLists.status} IN ('in_review', 'on_hold', 'completed')`,
         ),
       )
       .orderBy(sql`${shoppingLists.updatedAt} DESC NULLS LAST`)
@@ -219,6 +219,7 @@ export const getReceivingList = createServerFn({ method: 'GET' })
       .from(shoppingListItems)
       .leftJoin(products, eq(shoppingListItems.productId, products.id))
       .where(eq(shoppingListItems.shoppingListId, listId))
+      .orderBy(shoppingListItems.createdAt)
 
     const totalItems = items.length
     const verifiedItems = items.filter(

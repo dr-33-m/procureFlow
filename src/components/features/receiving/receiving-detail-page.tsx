@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   Filter,
   ArrowUpDown,
@@ -26,12 +27,14 @@ import { useUpdateShoppingListStatus } from '@/hooks/use-shopping-lists'
 import { formatRelativeTime, formatCurrencyFull } from '@/lib/format'
 import { buildReceivingColumns, type ReceivingItemRow } from './receiving-columns'
 import { useReceivingConfirmation } from '@/stores/receiving-confirmation'
+import { receivingKeys } from '@/lib/query-manager/receiving/keys'
 
 const routeApi = getRouteApi('/receiving/$listId')
 
 export function ReceivingDetailPage() {
   const { listId } = routeApi.useParams()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { data: list } = useReceivingList(listId)
 
   const baseQuantities = useMemo(
@@ -54,6 +57,7 @@ export function ReceivingDetailPage() {
   const confirmedItemIds = new Set(confirmations[listId] ?? [])
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const stableOrderRef = useRef<string[] | null>(null)
 
   const updateQtyMutation = useUpdateReceivedQuantity()
   const approveItemMutation = useApproveItem()
@@ -95,8 +99,18 @@ export function ReceivingDetailPage() {
     if (!list) return
     holdMutation.mutate(
       { id: list.id, status: 'on_hold' },
-      { onSuccess: () => navigate({ to: '/receiving' }) },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: receivingKeys.all })
+          navigate({ to: '/receiving' })
+        },
+      },
     )
+  }
+
+  const handleResume = () => {
+    if (!list) return
+    holdMutation.mutate({ id: list.id, status: 'in_review' })
   }
 
   const [page, setPage] = useState(1)
@@ -133,6 +147,14 @@ export function ReceivingDetailPage() {
     )
   }
 
+  // Freeze the display order on first load so refetches never reorder rows mid-session
+  if (!stableOrderRef.current) {
+    stableOrderRef.current = list.items.map((i) => i.id)
+  }
+  const stableIndexMap = Object.fromEntries(
+    stableOrderRef.current.map((id, idx) => [id, idx]),
+  )
+
   let displayItems = list.items.filter((item) => {
     if (filterStatus === 'flagged') {
       const s = getItemStatus(item)
@@ -144,6 +166,10 @@ export function ReceivingDetailPage() {
   if (sortByCategory) {
     displayItems = [...displayItems].sort((a, b) =>
       (a.productCategory ?? '').localeCompare(b.productCategory ?? ''),
+    )
+  } else {
+    displayItems = [...displayItems].sort(
+      (a, b) => (stableIndexMap[a.id] ?? 0) - (stableIndexMap[b.id] ?? 0),
     )
   }
 
@@ -346,6 +372,16 @@ export function ReceivingDetailPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {listOnHold && !listCompleted && (
+              <Button
+                variant="outline"
+                disabled={holdMutation.isPending}
+                onClick={handleResume}
+              >
+                {holdMutation.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+                Resume
+              </Button>
+            )}
             {!listOnHold && !listCompleted && (
               <Button
                 variant="outline"
