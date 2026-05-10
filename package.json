@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.8",
+    "@logto/node": "^3.1.10",
     "@tailwindcss/vite": "^4.2.1",
     "@tanstack/react-devtools": "^0.10.0",
     "@tanstack/react-query": "^5.99.0",
@@ -31,6 +32,8 @@
     "clsx": "^2.1.1",
     "dotenv": "^17.4.1",
     "drizzle-orm": "^0.45.2",
+    "input-otp": "^1.4.2",
+    "iron-webcrypto": "^2.0.0",
     "lucide-react": "^1.7.0",
     "nitro": "latest",
     "papaparse": "^5.5.3",

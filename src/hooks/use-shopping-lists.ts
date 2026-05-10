@@ -19,34 +19,42 @@ import {
   generateDraftFromDefaults,
   setProductBarcode,
 } from '@/server/shopping-lists'
+import { useBranchContext } from '@/stores/branch-context'
 import type { RestockSuggestion } from '@/types'
 
 export function useShoppingLists() {
-  return useQuery(getShoppingListsOptions())
+  const branchId = useBranchContext((s) => s.activeBranchId)
+  return useQuery(getShoppingListsOptions(branchId))
 }
 
 export function useShoppingList(id: string) {
-  return useQuery(getShoppingListOptions(id))
+  const branchId = useBranchContext((s) => s.activeBranchId)
+  return useQuery(getShoppingListOptions(branchId, id))
 }
 
 export function useProductCatalog() {
-  return useQuery(getProductCatalogOptions())
+  const branchId = useBranchContext((s) => s.activeBranchId)
+  return useQuery(getProductCatalogOptions(branchId))
 }
 
 export function useProductsWithStock() {
-  return useQuery(getProductsWithStockOptions())
+  const branchId = useBranchContext((s) => s.activeBranchId)
+  return useQuery(getProductsWithStockOptions(branchId))
 }
 
 export function useRunners() {
-  return useQuery(getRunnersOptions())
+  const branchId = useBranchContext((s) => s.activeBranchId)
+  return useQuery(getRunnersOptions(branchId))
 }
 
 export function useCreateShoppingList() {
   const queryClient = useQueryClient()
+  const branchId = useBranchContext((s) => s.activeBranchId)
 
   return useMutation({
-    mutationFn: (data: Parameters<typeof createShoppingList>[0]['data']) =>
-      createShoppingList({ data }),
+    mutationFn: (
+      data: Omit<Parameters<typeof createShoppingList>[0]['data'], 'branchId'>,
+    ) => createShoppingList({ data: { ...data, branchId } }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: shoppingListKeys.all })
       toast.success(variables.status === 'draft' ? 'Draft saved' : 'Shopping list created')
@@ -59,10 +67,11 @@ export function useCreateShoppingList() {
 
 export function useUpdateShoppingListStatus() {
   const queryClient = useQueryClient()
+  const branchId = useBranchContext((s) => s.activeBranchId)
 
   return useMutation({
     mutationFn: (data: { id: string; status: string }) =>
-      updateShoppingListStatus({ data }),
+      updateShoppingListStatus({ data: { ...data, branchId } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: shoppingListKeys.all })
       queryClient.invalidateQueries({ queryKey: dashboardKeys.all })
@@ -76,12 +85,15 @@ export function useUpdateShoppingListStatus() {
 
 export function useUpdateShoppingListItem(listId: string) {
   const queryClient = useQueryClient()
+  const branchId = useBranchContext((s) => s.activeBranchId)
 
   return useMutation({
     mutationFn: (data: Parameters<typeof updateShoppingListItem>[0]['data']) =>
       updateShoppingListItem({ data }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: shoppingListKeys.detail(listId) })
+      queryClient.invalidateQueries({
+        queryKey: shoppingListKeys.detail(branchId, listId),
+      })
       toast.success('Item updated')
     },
     onError: () => {
@@ -92,13 +104,17 @@ export function useUpdateShoppingListItem(listId: string) {
 
 export function useUpdateShoppingList(listId: string) {
   const queryClient = useQueryClient()
+  const branchId = useBranchContext((s) => s.activeBranchId)
 
   return useMutation({
-    mutationFn: (data: Parameters<typeof updateShoppingList>[0]['data']) =>
-      updateShoppingList({ data }),
+    mutationFn: (
+      data: Omit<Parameters<typeof updateShoppingList>[0]['data'], 'branchId'>,
+    ) => updateShoppingList({ data: { ...data, branchId } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: shoppingListKeys.all })
-      queryClient.invalidateQueries({ queryKey: shoppingListKeys.detail(listId) })
+      queryClient.invalidateQueries({
+        queryKey: shoppingListKeys.detail(branchId, listId),
+      })
       queryClient.invalidateQueries({ queryKey: dashboardKeys.all })
     },
     onError: () => {
@@ -109,9 +125,10 @@ export function useUpdateShoppingList(listId: string) {
 
 export function useDeleteShoppingList() {
   const queryClient = useQueryClient()
+  const branchId = useBranchContext((s) => s.activeBranchId)
 
   return useMutation({
-    mutationFn: (id: string) => deleteShoppingList({ data: id }),
+    mutationFn: (id: string) => deleteShoppingList({ data: { id, branchId } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: shoppingListKeys.all })
       queryClient.invalidateQueries({ queryKey: dashboardKeys.all })
@@ -124,20 +141,23 @@ export function useDeleteShoppingList() {
 }
 
 export function useRestockSuggestions() {
+  const branchId = useBranchContext((s) => s.activeBranchId)
+
   return useMutation<
     RestockSuggestion[],
     Error,
-    Parameters<typeof getRestockSuggestions>[0]['data']
+    Omit<Parameters<typeof getRestockSuggestions>[0]['data'], 'branchId'>
   >({
-    mutationFn: (data) => getRestockSuggestions({ data }),
+    mutationFn: (data) => getRestockSuggestions({ data: { ...data, branchId } }),
   })
 }
 
 export function useGenerateDraftFromDefaults() {
   const queryClient = useQueryClient()
+  const branchId = useBranchContext((s) => s.activeBranchId)
 
   return useMutation({
-    mutationFn: (name?: string) => generateDraftFromDefaults({ data: name }),
+    mutationFn: (name?: string) => generateDraftFromDefaults({ data: { branchId, name } }),
     onSuccess: (list) => {
       queryClient.invalidateQueries({ queryKey: shoppingListKeys.all })
       queryClient.invalidateQueries({ queryKey: dashboardKeys.all })
@@ -152,12 +172,15 @@ export function useGenerateDraftFromDefaults() {
 
 export function useSetProductBarcode(listId: string) {
   const queryClient = useQueryClient()
+  const branchId = useBranchContext((s) => s.activeBranchId)
 
   return useMutation({
     mutationFn: (data: { productId: string; barcode: string }) =>
-      setProductBarcode({ data }),
+      setProductBarcode({ data: { ...data, branchId } }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: shoppingListKeys.detail(listId) })
+      queryClient.invalidateQueries({
+        queryKey: shoppingListKeys.detail(branchId, listId),
+      })
       toast.success('Barcode registered')
     },
     onError: (err: unknown) => {

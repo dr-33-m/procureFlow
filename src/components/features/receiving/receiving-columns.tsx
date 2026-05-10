@@ -14,7 +14,7 @@ type ReceivingColumnsOpts = {
   listCompleted: boolean
   getItemStatus: (item: ReceivingItemRow) => 'pending' | 'matched' | 'shortage' | 'surplus'
   handleQuantityChange: (id: string, v: number) => void
-  handleApproveItem: (item: ReceivingItemRow) => void
+  handleApproveItem?: (item: ReceivingItemRow) => void
   handleConfirmItem: (id: string) => void
   approveItemMutation: { isPending: boolean; variables?: string }
   approvedItemIds: Set<string>
@@ -172,6 +172,8 @@ export function buildReceivingColumns(opts: ReceivingColumnsOpts): ColumnDef<Rec
             </Button>
           )
         }
+
+        if (!handleApproveItem) return null
 
         return (
           <Button

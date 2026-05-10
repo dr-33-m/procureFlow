@@ -16,6 +16,7 @@ import { ImportInventoryDialog } from './import-inventory-dialog'
 import { InventoryFilters } from './inventory-filters'
 import { InventoryTable } from './inventory-table'
 import { usePantryStats } from '@/hooks/use-pantry'
+import { usePermissions } from '@/hooks/use-permissions'
 import { formatCurrency } from '@/lib/format'
 import type { InventoryWithProduct } from '@/types'
 
@@ -27,6 +28,7 @@ export function PantryPage() {
   const [importDialogOpen, setImportDialogOpen] = useState(false)
 
   const { data: stats } = usePantryStats()
+  const { canEditInventory } = usePermissions()
 
   return (
     <AppLayout>
@@ -35,41 +37,43 @@ export function PantryPage() {
           title="Pantry Inventory"
           description="Current stock levels for essential supplies and raw materials."
           actions={
-            <>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex">
-                    <Button
-                      variant="outline"
-                      className="gap-2 cursor-not-allowed opacity-60"
-                      disabled
-                      tabIndex={-1}
-                    >
-                      <Download className="h-4 w-4" />
-                      Export CSV
-                      <Badge variant="secondary" className="ml-0.5 text-xs">
-                        Soon
-                      </Badge>
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>Coming Soon</TooltipContent>
-              </Tooltip>
+            canEditInventory ? (
+              <>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex">
+                      <Button
+                        variant="outline"
+                        className="gap-2 cursor-not-allowed opacity-60"
+                        disabled
+                        tabIndex={-1}
+                      >
+                        <Download className="h-4 w-4" />
+                        Export CSV
+                        <Badge variant="secondary" className="ml-0.5 text-xs">
+                          Soon
+                        </Badge>
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>Coming Soon</TooltipContent>
+                </Tooltip>
 
-              <Button
-                variant="outline"
-                className="gap-2"
-                onClick={() => setImportDialogOpen(true)}
-              >
-                <Upload className="h-4 w-4" />
-                Import CSV
-              </Button>
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => setImportDialogOpen(true)}
+                >
+                  <Upload className="h-4 w-4" />
+                  Import CSV
+                </Button>
 
-              <Button className="gap-2" onClick={() => setAddDialogOpen(true)}>
-                <Plus className="h-4 w-4" />
-                Add Item
-              </Button>
-            </>
+                <Button className="gap-2" onClick={() => setAddDialogOpen(true)}>
+                  <Plus className="h-4 w-4" />
+                  Add Item
+                </Button>
+              </>
+            ) : undefined
           }
         />
 
@@ -113,7 +117,7 @@ export function PantryPage() {
         <InventoryFilters />
 
         {/* Table + Pagination */}
-        <InventoryTable onEdit={setEditingItem} />
+        <InventoryTable onEdit={canEditInventory ? setEditingItem : undefined} />
 
         {/* Dialogs */}
         <EditItemDialog

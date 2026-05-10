@@ -8,12 +8,13 @@ import {
   inventoryTransactions,
   productPriceHistory,
   users,
+  branchMembers,
 } from '@/db'
 import { eq, sql, and, count } from 'drizzle-orm'
 import { pricePerStockUnit, type ProductPricing } from '@/server/lib/pricing'
+import { getAuthContext, requireRole } from '@/server/auth/context'
 import type { ReceivingListSummary, ReceivingListDetail } from '@/types'
 
-// Helper: after receiving an item, write back price learning data if price is known.
 async function recordPriceIfKnown(
   productId: string,
   pricePerStockUnitStr: string | null | undefined,
@@ -21,8 +22,6 @@ async function recordPriceIfKnown(
   const price = parseFloat(pricePerStockUnitStr ?? '0')
   if (!price || price <= 0) return
 
-  // Update the product's current purchase price (normalized to stock unit).
-  // We fetch packaging to update purchasePrice correctly.
   const [product] = await db
     .select({
       stockUnit: products.stockUnit,
@@ -46,14 +45,11 @@ async function recordPriceIfKnown(
     baseUnitsPerStock: product.baseUnitsPerStock,
   }
 
-  // The shopping-list item stores pricePerStockUnit already. Derive new purchasePrice
-  // (per purchaseUnit) = pricePerStockUnit × packSize.
   const packSize = product.purchaseUnit
     ? parseFloat(product.purchasePackSize ?? '1') || 1
     : 1
   const newPurchasePrice = price * packSize
 
-  // Only update if the price actually changed meaningfully (>1% delta) to avoid noise.
   const existingPrice = pricePerStockUnit(pricing)
   if (Math.abs(price - existingPrice) / Math.max(existingPrice, 0.0001) > 0.01) {
     await db
@@ -69,14 +65,15 @@ async function recordPriceIfKnown(
   })
 }
 
-export const getReceivingLists = createServerFn({ method: 'GET' }).handler(
-  async (): Promise<ReceivingListSummary[]> => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
+export const getReceivingLists = createServerFn({ method: 'GET' })
+  .inputValidator((branchId: string) => branchId)
+  .handler(async ({ data: branchId }): Promise<ReceivingListSummary[]> => {
+    await getAuthContext()
 
     const lists = await db
       .select({
         id: shoppingLists.id,
-        hotelId: shoppingLists.hotelId,
+        branchId: shoppingLists.branchId,
         name: shoppingLists.name,
         priority: shoppingLists.priority,
         status: shoppingLists.status,
@@ -100,13 +97,12 @@ export const getReceivingLists = createServerFn({ method: 'GET' }).handler(
       .leftJoin(users, eq(shoppingLists.createdBy, users.id))
       .where(
         and(
-          eq(shoppingLists.hotelId, hotelId),
+          eq(shoppingLists.branchId, branchId),
           sql`${shoppingLists.status} IN ('in_review', 'on_hold', 'completed')`,
         ),
       )
       .orderBy(sql`${shoppingLists.updatedAt} DESC NULLS LAST`)
 
-    // Get item counts per list
     const itemCounts = await db
       .select({
         shoppingListId: shoppingListItems.shoppingListId,
@@ -116,12 +112,10 @@ export const getReceivingLists = createServerFn({ method: 'GET' }).handler(
       .groupBy(shoppingListItems.shoppingListId)
     const totalMap = Object.fromEntries(itemCounts.map((r) => [r.shoppingListId, r.total]))
 
-    // Get verified items (receivedQuantity > 0)
     const allItems = await db
       .select({
         shoppingListId: shoppingListItems.shoppingListId,
         receivedQuantity: shoppingListItems.receivedQuantity,
-        purchasedQuantity: shoppingListItems.purchasedQuantity,
       })
       .from(shoppingListItems)
     const verifiedMap: Record<string, number> = {}
@@ -132,32 +126,34 @@ export const getReceivingLists = createServerFn({ method: 'GET' }).handler(
       }
     }
 
-    // Get runner names
-    const runnerRows = await db
-      .select({ id: users.id, name: users.name })
-      .from(users)
-      .where(eq(users.hotelId, hotelId))
-    const runnerMap = Object.fromEntries(runnerRows.map((r) => [r.id, r.name]))
+    // Get members for this branch to resolve runner names
+    const memberRows = await db
+      .select({ userId: branchMembers.userId, name: users.name })
+      .from(branchMembers)
+      .leftJoin(users, eq(branchMembers.userId, users.id))
+      .where(eq(branchMembers.branchId, branchId))
+    const memberMap = Object.fromEntries(
+      memberRows.map((r) => [r.userId, r.name ?? '']),
+    )
 
     return lists.map((l) => ({
       ...l,
       creatorName: l.creatorName ?? null,
-      runnerName: l.assignedTo ? (runnerMap[l.assignedTo] ?? null) : null,
+      runnerName: l.assignedTo ? (memberMap[l.assignedTo] ?? null) : null,
       itemCount: totalMap[l.id] ?? 0,
       verifiedItems: verifiedMap[l.id] ?? 0,
     }))
-  },
-)
+  })
 
 export const getReceivingList = createServerFn({ method: 'GET' })
-  .inputValidator((listId: string) => listId)
-  .handler(async ({ data: listId }): Promise<ReceivingListDetail | null> => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
+  .inputValidator((data: { branchId: string; listId: string }) => data)
+  .handler(async ({ data: { branchId, listId } }): Promise<ReceivingListDetail | null> => {
+    await getAuthContext()
 
     const [list] = await db
       .select({
         id: shoppingLists.id,
-        hotelId: shoppingLists.hotelId,
+        branchId: shoppingLists.branchId,
         name: shoppingLists.name,
         priority: shoppingLists.priority,
         status: shoppingLists.status,
@@ -179,7 +175,7 @@ export const getReceivingList = createServerFn({ method: 'GET' })
       })
       .from(shoppingLists)
       .leftJoin(users, eq(shoppingLists.createdBy, users.id))
-      .where(and(eq(shoppingLists.id, listId), eq(shoppingLists.hotelId, hotelId)))
+      .where(and(eq(shoppingLists.id, listId), eq(shoppingLists.branchId, branchId)))
       .limit(1)
 
     if (!list) return null
@@ -251,7 +247,8 @@ export const getReceivingList = createServerFn({ method: 'GET' })
 export const scanItem = createServerFn({ method: 'POST' })
   .inputValidator((data: { listId: string; barcode: string; increment: number }) => data)
   .handler(async ({ data }) => {
-    // Find the product by barcode
+    await getAuthContext()
+
     const [product] = await db
       .select({ id: products.id, name: products.name })
       .from(products)
@@ -262,7 +259,6 @@ export const scanItem = createServerFn({ method: 'POST' })
       return { success: false, error: 'Product not found for this barcode' }
     }
 
-    // Find the matching item in the shopping list
     const [item] = await db
       .select()
       .from(shoppingListItems)
@@ -283,38 +279,30 @@ export const scanItem = createServerFn({ method: 'POST' })
 
     await db
       .update(shoppingListItems)
-      .set({
-        receivedQuantity: newQty.toString(),
-        updatedAt: new Date(),
-      })
+      .set({ receivedQuantity: newQty.toString(), updatedAt: new Date() })
       .where(eq(shoppingListItems.id, item.id))
 
-    return {
-      success: true,
-      itemId: item.id,
-      productName: product.name,
-      newQuantity: newQty,
-    }
+    return { success: true, itemId: item.id, productName: product.name, newQuantity: newQty }
   })
 
 export const updateReceivedQuantity = createServerFn({ method: 'POST' })
-  .inputValidator((data: { itemId: string; receivedQuantity: number; unit?: 'stock' | 'base' | 'purchase' }) => data)
+  .inputValidator(
+    (data: { itemId: string; receivedQuantity: number; unit?: 'stock' | 'base' | 'purchase' }) =>
+      data,
+  )
   .handler(async ({ data }) => {
-    // For now, unit defaults to 'stock' — conversion is a future enhancement
+    await getAuthContext()
     await db
       .update(shoppingListItems)
-      .set({
-        receivedQuantity: data.receivedQuantity.toString(),
-        updatedAt: new Date(),
-      })
+      .set({ receivedQuantity: data.receivedQuantity.toString(), updatedAt: new Date() })
       .where(eq(shoppingListItems.id, data.itemId))
   })
 
 export const approveItem = createServerFn({ method: 'POST' })
-  .inputValidator((itemId: string) => itemId)
-  .handler(async ({ data: itemId }) => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
-    const userId = process.env.MOCK_USER_ID
+  .inputValidator((data: { itemId: string; branchId: string }) => data)
+  .handler(async ({ data: { itemId, branchId } }) => {
+    const ctx = await getAuthContext()
+    requireRole(ctx, 'owner', 'admin')
 
     const [item] = await db
       .select()
@@ -326,7 +314,6 @@ export const approveItem = createServerFn({ method: 'POST' })
       return { success: false, error: 'Item not found or no product' }
     }
 
-    // Use receivedQuantity, fallback to purchasedQuantity
     const received = parseFloat(item.receivedQuantity ?? '0')
     const purchased = parseFloat(item.purchasedQuantity ?? '0')
     const qty = received > 0 ? received : purchased
@@ -339,14 +326,9 @@ export const approveItem = createServerFn({ method: 'POST' })
 
     await db
       .insert(inventory)
-      .values({
-        hotelId,
-        productId,
-        quantity: qty.toString(),
-        updatedAt: new Date(),
-      })
+      .values({ branchId, productId, quantity: qty.toString(), updatedAt: new Date() })
       .onConflictDoUpdate({
-        target: [inventory.hotelId, inventory.productId],
+        target: [inventory.branchId, inventory.productId],
         set: {
           quantity: sql`${inventory.quantity} + ${qty}`,
           updatedAt: new Date(),
@@ -354,7 +336,7 @@ export const approveItem = createServerFn({ method: 'POST' })
       })
 
     await db.insert(inventoryTransactions).values({
-      hotelId,
+      branchId,
       productId,
       type: 'RECEIVE',
       quantityStock: qty.toString(),
@@ -362,19 +344,18 @@ export const approveItem = createServerFn({ method: 'POST' })
       referenceId: item.shoppingListId,
       referenceType: 'shopping_list',
       method: 'manual',
-      createdBy: userId || undefined,
+      createdBy: ctx.userId,
     })
 
     await recordPriceIfKnown(productId, item.pricePerStockUnit)
-
     return { success: true }
   })
 
 export const approveList = createServerFn({ method: 'POST' })
-  .inputValidator((listId: string) => listId)
-  .handler(async ({ data: listId }) => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
-    const userId = process.env.MOCK_USER_ID
+  .inputValidator((data: { listId: string; branchId: string }) => data)
+  .handler(async ({ data: { listId, branchId } }) => {
+    const ctx = await getAuthContext()
+    requireRole(ctx, 'owner', 'admin')
 
     const items = await db
       .select()
@@ -384,7 +365,6 @@ export const approveList = createServerFn({ method: 'POST' })
     for (const item of items) {
       if (!item.productId) continue
 
-      // Use receivedQuantity, fallback to purchasedQuantity
       const received = parseFloat(item.receivedQuantity ?? '0')
       const purchased = parseFloat(item.purchasedQuantity ?? '0')
       const qty = received > 0 ? received : purchased
@@ -395,14 +375,9 @@ export const approveList = createServerFn({ method: 'POST' })
 
       await db
         .insert(inventory)
-        .values({
-          hotelId,
-          productId,
-          quantity: qty.toString(),
-          updatedAt: new Date(),
-        })
+        .values({ branchId, productId, quantity: qty.toString(), updatedAt: new Date() })
         .onConflictDoUpdate({
-          target: [inventory.hotelId, inventory.productId],
+          target: [inventory.branchId, inventory.productId],
           set: {
             quantity: sql`${inventory.quantity} + ${qty}`,
             updatedAt: new Date(),
@@ -410,7 +385,7 @@ export const approveList = createServerFn({ method: 'POST' })
         })
 
       await db.insert(inventoryTransactions).values({
-        hotelId,
+        branchId,
         productId,
         type: 'RECEIVE',
         quantityStock: qty.toString(),
@@ -418,21 +393,16 @@ export const approveList = createServerFn({ method: 'POST' })
         referenceId: listId,
         referenceType: 'shopping_list',
         method: 'manual',
-        createdBy: userId || undefined,
+        createdBy: ctx.userId,
       })
 
       await recordPriceIfKnown(productId, item.pricePerStockUnit)
     }
 
-    // Mark the shopping list as completed
     await db
       .update(shoppingLists)
-      .set({
-        status: 'completed',
-        completedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(and(eq(shoppingLists.id, listId), eq(shoppingLists.hotelId, hotelId)))
+      .set({ status: 'completed', completedAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(shoppingLists.id, listId), eq(shoppingLists.branchId, branchId)))
 
     return { success: true }
   })

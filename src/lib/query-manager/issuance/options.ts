@@ -7,43 +7,47 @@ import {
 } from '@/server/issuance'
 import { issuanceKeys } from './keys'
 
-export function getInventoryForIssuanceOptions() {
+export function getInventoryForIssuanceOptions(branchId: string) {
   return {
-    queryKey: issuanceKeys.inventory(),
-    queryFn: () => getInventoryForIssuance(),
+    queryKey: issuanceKeys.inventory(branchId),
+    queryFn: () => getInventoryForIssuance({ data: branchId }),
     staleTime: 30_000,
+    enabled: !!branchId,
   }
 }
 
-export function searchProductsOptions(q: string) {
+export function searchProductsOptions(branchId: string, q: string) {
   return {
-    queryKey: issuanceKeys.search(q),
-    queryFn: () => searchProducts({ data: q }),
+    queryKey: issuanceKeys.search(branchId, q),
+    queryFn: () => searchProducts({ data: { branchId, query: q } }),
     staleTime: 15_000,
-    enabled: q.length >= 2,
+    enabled: !!branchId && q.length >= 2,
   }
 }
 
-export function getRecentIssuancesOptions() {
+export function getRecentIssuancesOptions(branchId: string) {
   return {
-    queryKey: issuanceKeys.recent(),
-    queryFn: () => getRecentIssuances(),
+    queryKey: issuanceKeys.recent(branchId),
+    queryFn: () => getRecentIssuances({ data: branchId }),
     staleTime: 15_000,
+    enabled: !!branchId,
   }
 }
 
-export function getTodayIssuanceStatsOptions() {
+export function getTodayIssuanceStatsOptions(branchId: string) {
   return {
-    queryKey: issuanceKeys.stats(),
-    queryFn: () => getTodayIssuanceStats(),
+    queryKey: issuanceKeys.stats(branchId),
+    queryFn: () => getTodayIssuanceStats({ data: branchId }),
     staleTime: 60_000,
+    enabled: !!branchId,
   }
 }
 
-export function getAllIssuancesOptions(page: number, pageSize = 20) {
+export function getAllIssuancesOptions(branchId: string, page: number, pageSize = 20) {
   return {
-    queryKey: issuanceKeys.activity(page),
-    queryFn: () => getAllIssuances({ data: { page, pageSize } }),
+    queryKey: issuanceKeys.activity(branchId, page),
+    queryFn: () => getAllIssuances({ data: { branchId, page, pageSize } }),
     staleTime: 30_000,
+    enabled: !!branchId,
   }
 }

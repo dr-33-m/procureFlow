@@ -7,43 +7,47 @@ import {
 } from '@/server/shopping-lists'
 import { shoppingListKeys } from './keys'
 
-export function getShoppingListsOptions() {
+export function getShoppingListsOptions(branchId: string, filter?: string) {
   return {
-    queryKey: shoppingListKeys.lists(),
-    queryFn: () => getShoppingLists(),
+    queryKey: shoppingListKeys.lists(branchId, filter),
+    queryFn: () => getShoppingLists({ data: branchId }),
     staleTime: 30_000,
+    enabled: !!branchId,
   }
 }
 
-export function getShoppingListOptions(id: string) {
+export function getShoppingListOptions(branchId: string, id: string) {
   return {
-    queryKey: shoppingListKeys.detail(id),
-    queryFn: () => getShoppingList({ data: id }),
+    queryKey: shoppingListKeys.detail(branchId, id),
+    queryFn: () => getShoppingList({ data: { branchId, id } }),
     staleTime: 30_000,
-    enabled: !!id,
+    enabled: !!branchId && !!id,
   }
 }
 
-export function getProductCatalogOptions() {
+export function getProductCatalogOptions(branchId: string) {
   return {
-    queryKey: shoppingListKeys.catalog(),
-    queryFn: () => getProductCatalog(),
+    queryKey: shoppingListKeys.catalog(branchId),
+    queryFn: () => getProductCatalog({ data: branchId }),
     staleTime: 5 * 60_000,
+    enabled: !!branchId,
   }
 }
 
-export function getProductsWithStockOptions() {
+export function getProductsWithStockOptions(branchId: string) {
   return {
-    queryKey: shoppingListKeys.catalogWithStock(),
-    queryFn: () => getProductsWithStock(),
+    queryKey: shoppingListKeys.catalogWithStock(branchId),
+    queryFn: () => getProductsWithStock({ data: branchId }),
     staleTime: 30_000,
+    enabled: !!branchId,
   }
 }
 
-export function getRunnersOptions() {
+export function getRunnersOptions(branchId: string) {
   return {
-    queryKey: shoppingListKeys.runners(),
-    queryFn: () => getRunners(),
+    queryKey: shoppingListKeys.runners(branchId),
+    queryFn: () => getRunners({ data: branchId }),
     staleTime: 5 * 60_000,
+    enabled: !!branchId,
   }
 }

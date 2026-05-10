@@ -136,7 +136,7 @@ export function ImportInventoryDialog({ open, onClose }: ImportInventoryDialogPr
 
   const handleImport = () => {
     if (validRows.length === 0) return
-    importMutation.mutate(validRows, { onSuccess: handleClose })
+    importMutation.mutate({ rows: validRows }, { onSuccess: handleClose })
   }
 
   return (

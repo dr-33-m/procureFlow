@@ -8,28 +8,36 @@ import {
 } from '@/lib/query-manager/issuance/options'
 import { issuanceKeys } from '@/lib/query-manager/issuance/keys'
 import { issueStock } from '@/server/issuance'
+import { useBranchContext } from '@/stores/branch-context'
 
 export function useInventoryForIssuance() {
-  return useQuery(getInventoryForIssuanceOptions())
+  const branchId = useBranchContext((s) => s.activeBranchId)
+  return useQuery(getInventoryForIssuanceOptions(branchId))
 }
 
 export function useRecentIssuances() {
-  return useQuery(getRecentIssuancesOptions())
+  const branchId = useBranchContext((s) => s.activeBranchId)
+  return useQuery(getRecentIssuancesOptions(branchId))
 }
 
 export function useTodayIssuanceStats() {
-  return useQuery(getTodayIssuanceStatsOptions())
+  const branchId = useBranchContext((s) => s.activeBranchId)
+  return useQuery(getTodayIssuanceStatsOptions(branchId))
 }
 
 export function useAllIssuances(page: number, pageSize = 20) {
-  return useQuery(getAllIssuancesOptions(page, pageSize))
+  const branchId = useBranchContext((s) => s.activeBranchId)
+  return useQuery(getAllIssuancesOptions(branchId, page, pageSize))
 }
 
 export function useIssueStock() {
   const queryClient = useQueryClient()
+  const branchId = useBranchContext((s) => s.activeBranchId)
 
   return useMutation({
-    mutationFn: (data: Parameters<typeof issueStock>[0]['data']) => issueStock({ data }),
+    mutationFn: (
+      data: Omit<Parameters<typeof issueStock>[0]['data'], 'branchId'>,
+    ) => issueStock({ data: { ...data, branchId } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: issuanceKeys.all })
       queryClient.invalidateQueries({ queryKey: ['pantry'] })

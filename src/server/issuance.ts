@@ -2,12 +2,13 @@ import { createServerFn } from '@tanstack/react-start'
 import { db, products, inventory, inventoryTransactions, users } from '@/db'
 import { eq, and, sql, ilike, or, desc, gte, inArray } from 'drizzle-orm'
 import { toStockQty, type ProductPricing } from '@/server/lib/pricing'
+import { getAuthContext, requireRole } from '@/server/auth/context'
 import type { RecentIssuance, TodayIssuanceStats } from '@/types'
 
 export const searchProducts = createServerFn({ method: 'GET' })
-  .inputValidator((query: string) => query)
-  .handler(async ({ data: query }) => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
+  .inputValidator((data: { branchId: string; query: string }) => data)
+  .handler(async ({ data: { branchId, query } }) => {
+    await getAuthContext()
     if (!query || query.length < 2) return []
 
     return db
@@ -21,20 +22,21 @@ export const searchProducts = createServerFn({ method: 'GET' })
       .from(products)
       .leftJoin(
         inventory,
-        and(eq(inventory.productId, products.id), eq(inventory.hotelId, hotelId)),
+        and(eq(inventory.productId, products.id), eq(inventory.branchId, branchId)),
       )
       .where(
         and(
-          eq(products.hotelId, hotelId),
+          eq(products.branchId, branchId),
           or(ilike(products.name, `%${query}%`), ilike(products.barcode, `%${query}%`)),
         ),
       )
       .limit(10)
   })
 
-export const getInventoryForIssuance = createServerFn({ method: 'GET' }).handler(
-  async () => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
+export const getInventoryForIssuance = createServerFn({ method: 'GET' })
+  .inputValidator((branchId: string) => branchId)
+  .handler(async ({ data: branchId }) => {
+    await getAuthContext()
 
     const rows = await db
       .select({
@@ -54,7 +56,7 @@ export const getInventoryForIssuance = createServerFn({ method: 'GET' }).handler
       })
       .from(inventory)
       .leftJoin(products, eq(inventory.productId, products.id))
-      .where(eq(inventory.hotelId, hotelId))
+      .where(eq(inventory.branchId, branchId))
       .orderBy(products.category, products.name)
 
     return rows
@@ -67,12 +69,12 @@ export const getInventoryForIssuance = createServerFn({ method: 'GET' }).handler
         category: r.category ?? 'General',
         quantity: parseFloat(r.quantity ?? '0'),
       }))
-  },
-)
+  })
 
-export const getRecentIssuances = createServerFn({ method: 'GET' }).handler(
-  async (): Promise<RecentIssuance[]> => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
+export const getRecentIssuances = createServerFn({ method: 'GET' })
+  .inputValidator((branchId: string) => branchId)
+  .handler(async ({ data: branchId }): Promise<RecentIssuance[]> => {
+    await getAuthContext()
 
     const rows = await db
       .select({
@@ -88,7 +90,7 @@ export const getRecentIssuances = createServerFn({ method: 'GET' }).handler(
       .leftJoin(products, eq(inventoryTransactions.productId, products.id))
       .where(
         and(
-          eq(inventoryTransactions.hotelId, hotelId),
+          eq(inventoryTransactions.branchId, branchId),
           eq(inventoryTransactions.type, 'ISSUE'),
         ),
       )
@@ -104,12 +106,12 @@ export const getRecentIssuances = createServerFn({ method: 'GET' }).handler(
       quantityStock: r.quantityStock,
       method: r.method,
     }))
-  },
-)
+  })
 
-export const getTodayIssuanceStats = createServerFn({ method: 'GET' }).handler(
-  async (): Promise<TodayIssuanceStats> => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
+export const getTodayIssuanceStats = createServerFn({ method: 'GET' })
+  .inputValidator((branchId: string) => branchId)
+  .handler(async ({ data: branchId }): Promise<TodayIssuanceStats> => {
+    await getAuthContext()
 
     const now = new Date()
     const todayStart = new Date(now)
@@ -125,7 +127,7 @@ export const getTodayIssuanceStats = createServerFn({ method: 'GET' }).handler(
       .from(inventoryTransactions)
       .where(
         and(
-          eq(inventoryTransactions.hotelId, hotelId),
+          eq(inventoryTransactions.branchId, branchId),
           eq(inventoryTransactions.type, 'ISSUE'),
           gte(inventoryTransactions.createdAt, yesterdayStart),
         ),
@@ -150,13 +152,12 @@ export const getTodayIssuanceStats = createServerFn({ method: 'GET' }).handler(
         : 0
 
     return { todayCount, yesterdayCount, deltaPercent }
-  },
-)
+  })
 
 export const getAllIssuances = createServerFn({ method: 'GET' })
-  .inputValidator((params: { page: number; pageSize: number }) => params)
-  .handler(async ({ data: { page, pageSize } }) => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
+  .inputValidator((params: { branchId: string; page: number; pageSize: number }) => params)
+  .handler(async ({ data: { branchId, page, pageSize } }) => {
+    await getAuthContext()
     const offset = (page - 1) * pageSize
 
     const allRows = await db
@@ -175,7 +176,7 @@ export const getAllIssuances = createServerFn({ method: 'GET' })
       .leftJoin(users, eq(inventoryTransactions.createdBy, users.id))
       .where(
         and(
-          eq(inventoryTransactions.hotelId, hotelId),
+          eq(inventoryTransactions.branchId, branchId),
           eq(inventoryTransactions.type, 'ISSUE'),
         ),
       )
@@ -204,6 +205,7 @@ export const getAllIssuances = createServerFn({ method: 'GET' })
 export const issueStock = createServerFn({ method: 'POST' })
   .inputValidator(
     (data: {
+      branchId: string
       guestCount?: number | null
       items: Array<{
         productId: string
@@ -214,11 +216,11 @@ export const issueStock = createServerFn({ method: 'POST' })
     }) => data,
   )
   .handler(async ({ data }) => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
-    const userId = process.env.MOCK_USER_ID
-    const { guestCount, items } = data
+    const ctx = await getAuthContext()
+    requireRole(ctx, 'owner', 'admin')
 
-    // Fetch packaging info for any items that need purchase→stock conversion.
+    const { branchId, guestCount, items } = data
+
     const purchaseItems = items.filter((i) => i.deductUnit === 'purchase')
     const packagingMap = new Map<string, ProductPricing>()
     if (purchaseItems.length > 0) {
@@ -235,7 +237,7 @@ export const issueStock = createServerFn({ method: 'POST' })
         .from(products)
         .where(
           and(
-            eq(products.hotelId, hotelId),
+            eq(products.branchId, branchId),
             inArray(products.id, purchaseItems.map((i) => i.productId)),
           ),
         )
@@ -265,11 +267,11 @@ export const issueStock = createServerFn({ method: 'POST' })
           updatedAt: new Date(),
         })
         .where(
-          and(eq(inventory.hotelId, hotelId), eq(inventory.productId, item.productId)),
+          and(eq(inventory.branchId, branchId), eq(inventory.productId, item.productId)),
         )
 
       await db.insert(inventoryTransactions).values({
-        hotelId,
+        branchId,
         productId: item.productId,
         type: 'ISSUE',
         quantityStock: (-stockQty).toString(),
@@ -277,7 +279,7 @@ export const issueStock = createServerFn({ method: 'POST' })
         guestCount: guestCount ?? null,
         method: 'manual',
         station: item.station,
-        createdBy: userId || undefined,
+        createdBy: ctx.userId,
       })
     }
 

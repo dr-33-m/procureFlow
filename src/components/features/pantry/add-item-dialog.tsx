@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useCreateProduct, useCategories } from '@/hooks/use-pantry'
+import { TierUsageBar } from '@/components/ui/tier-usage-bar'
 import {
   formatPriceLabel,
   pricePerStockFromSupplier,
@@ -199,6 +200,7 @@ export function AddItemDialog({ open, onClose }: AddItemDialogProps) {
         <DialogHeader>
           <DialogTitle>Add New Product to Inventory</DialogTitle>
         </DialogHeader>
+        <TierUsageBar resource="products" label="Products used" className="mb-1" />
 
         <div className="space-y-4 py-2">
           <div className="grid grid-cols-2 gap-3">

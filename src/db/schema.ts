@@ -5,14 +5,28 @@ import {
   timestamp,
   numeric,
   integer,
+  boolean,
   uniqueIndex,
   index,
 } from 'drizzle-orm/pg-core'
 
-// ─── Hotels ─────────────────────────────────────────────────────────────────
+// ─── Companies ──────────────────────────────────────────────────────────────
 
-export const hotels = pgTable('hotels', {
+export const companies = pgTable('companies', {
   id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  bio: text('bio'),
+  tier: text('tier').notNull().default('starter'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
+// ─── Branches (formerly Hotels) ─────────────────────────────────────────────
+
+export const branches = pgTable('branches', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  companyId: uuid('company_id')
+    .notNull()
+    .references(() => companies.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
@@ -21,12 +35,78 @@ export const hotels = pgTable('hotels', {
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
-  hotelId: uuid('hotel_id')
-    .notNull()
-    .references(() => hotels.id, { onDelete: 'cascade' }),
+  logtoId: text('logto_id').unique(),
   name: text('name').notNull(),
   email: text('email').unique().notNull(),
-  role: text('role').notNull(),
+  avatar: text('avatar'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
+// ─── Company Members (owner / admin) ────────────────────────────────────────
+
+export const companyMembers = pgTable(
+  'company_members',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => companies.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    role: text('role').notNull(), // 'owner' | 'admin'
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('company_members_company_user_unique').on(t.companyId, t.userId),
+  ],
+)
+
+// ─── Branch Members (chef / runner) ─────────────────────────────────────────
+
+export const branchMembers = pgTable(
+  'branch_members',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    branchId: uuid('branch_id')
+      .notNull()
+      .references(() => branches.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    role: text('role').notNull(), // 'chef' | 'runner'
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('branch_members_branch_user_unique').on(t.branchId, t.userId),
+  ],
+)
+
+// ─── Invite Tokens ──────────────────────────────────────────────────────────
+
+export const inviteTokens = pgTable('invite_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  companyId: uuid('company_id')
+    .notNull()
+    .references(() => companies.id, { onDelete: 'cascade' }),
+  branchId: uuid('branch_id').references(() => branches.id, { onDelete: 'cascade' }),
+  email: text('email').notNull(),
+  role: text('role').notNull(), // 'admin' | 'chef' | 'runner'
+  token: text('token').unique().notNull(),
+  used: boolean('used').notNull().default(false),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+})
+
+// ─── Sessions ───────────────────────────────────────────────────────────────
+
+export const sessions = pgTable('sessions', {
+  id: text('id').primaryKey(), // random token
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  data: text('data').notNull(), // JSON blob for Logto tokens
+  expiresAt: timestamp('expires_at').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
@@ -36,9 +116,9 @@ export const products = pgTable(
   'products',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    hotelId: uuid('hotel_id')
+    branchId: uuid('branch_id')
       .notNull()
-      .references(() => hotels.id, { onDelete: 'cascade' }),
+      .references(() => branches.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     category: text('category').notNull().default('General'),
     barcode: text('barcode').unique(),
@@ -90,9 +170,9 @@ export const productSuppliers = pgTable('product_suppliers', {
 
 export const shoppingLists = pgTable('shopping_lists', {
   id: uuid('id').primaryKey().defaultRandom(),
-  hotelId: uuid('hotel_id')
+  branchId: uuid('branch_id')
     .notNull()
-    .references(() => hotels.id, { onDelete: 'cascade' }),
+    .references(() => branches.id, { onDelete: 'cascade' }),
   name: text('name').notNull().default('Untitled List'),
   priority: text('priority').notNull().default('normal'),
   createdBy: uuid('created_by').references(() => users.id),
@@ -155,9 +235,9 @@ export const inventory = pgTable(
   'inventory',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    hotelId: uuid('hotel_id')
+    branchId: uuid('branch_id')
       .notNull()
-      .references(() => hotels.id, { onDelete: 'cascade' }),
+      .references(() => branches.id, { onDelete: 'cascade' }),
     productId: uuid('product_id')
       .notNull()
       .references(() => products.id),
@@ -167,9 +247,9 @@ export const inventory = pgTable(
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
   (t) => [
-    uniqueIndex('inventory_hotel_product_unique').on(t.hotelId, t.productId),
+    uniqueIndex('inventory_branch_product_unique').on(t.branchId, t.productId),
     index('idx_inventory_product').on(t.productId),
-    index('idx_inventory_hotel').on(t.hotelId),
+    index('idx_inventory_branch').on(t.branchId),
   ],
 )
 
@@ -177,9 +257,9 @@ export const inventory = pgTable(
 
 export const stations = pgTable('stations', {
   id: uuid('id').primaryKey().defaultRandom(),
-  hotelId: uuid('hotel_id')
+  branchId: uuid('branch_id')
     .notNull()
-    .references(() => hotels.id, { onDelete: 'cascade' }),
+    .references(() => branches.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
@@ -216,9 +296,9 @@ export const inventoryTransactions = pgTable(
   'inventory_transactions',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    hotelId: uuid('hotel_id')
+    branchId: uuid('branch_id')
       .notNull()
-      .references(() => hotels.id, { onDelete: 'cascade' }),
+      .references(() => branches.id, { onDelete: 'cascade' }),
     productId: uuid('product_id')
       .notNull()
       .references(() => products.id),
@@ -243,6 +323,6 @@ export const inventoryTransactions = pgTable(
   },
   (t) => [
     index('idx_transactions_product').on(t.productId),
-    index('idx_transactions_hotel').on(t.hotelId),
+    index('idx_transactions_branch').on(t.branchId),
   ],
 )

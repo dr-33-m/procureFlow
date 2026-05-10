@@ -6,11 +6,12 @@ import {
 } from '@/server/pantry'
 import { pantryKeys, type PantryItemsParams } from './keys'
 
-export function getPantryStatsOptions() {
+export function getPantryStatsOptions(branchId: string) {
   return {
-    queryKey: pantryKeys.stats(),
-    queryFn: () => getPantryStats(),
+    queryKey: pantryKeys.stats(branchId),
+    queryFn: () => getPantryStats({ data: branchId }),
     staleTime: 30_000,
+    enabled: !!branchId,
   }
 }
 
@@ -19,21 +20,24 @@ export function getInventoryItemsOptions(params: PantryItemsParams) {
     queryKey: pantryKeys.items(params),
     queryFn: () => getInventoryItems({ data: params }),
     staleTime: 30_000,
+    enabled: !!params.branchId,
   }
 }
 
-export function getCategoriesOptions() {
+export function getCategoriesOptions(branchId: string) {
   return {
-    queryKey: pantryKeys.categories(),
-    queryFn: () => getCategories(),
+    queryKey: pantryKeys.categories(branchId),
+    queryFn: () => getCategories({ data: branchId }),
     staleTime: 5 * 60_000,
+    enabled: !!branchId,
   }
 }
 
-export function getPantryCatalogOptions() {
+export function getPantryCatalogOptions(branchId: string) {
   return {
-    queryKey: [...pantryKeys.all, 'catalog'] as const,
-    queryFn: () => getProductCatalog(),
+    queryKey: pantryKeys.catalog(branchId),
+    queryFn: () => getProductCatalog({ data: branchId }),
     staleTime: 5 * 60_000,
+    enabled: !!branchId,
   }
 }

@@ -3,19 +3,18 @@ import { db, inventory, shoppingLists, products, users } from '@/db'
 import { eq, and, desc, inArray } from 'drizzle-orm'
 import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
 import { pricePerStockUnit, type ProductPricing } from '@/server/lib/pricing'
+import { getAuthContext } from '@/server/auth/context'
 import type { DashboardStats, RecentListActivity } from '@/types'
 
-export const getDashboardStats = createServerFn({ method: 'GET' }).handler(
-  async (): Promise<DashboardStats> => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
+export const getDashboardStats = createServerFn({ method: 'GET' })
+  .inputValidator((branchId: string) => branchId)
+  .handler(async ({ data: branchId }): Promise<DashboardStats> => {
+    await getAuthContext()
 
-    // Total inventory rows and low/out of stock counts
     const invRows = await db
-      .select({
-        quantity: inventory.quantity,
-      })
+      .select({ quantity: inventory.quantity })
       .from(inventory)
-      .where(eq(inventory.hotelId, hotelId))
+      .where(eq(inventory.branchId, branchId))
 
     const totalItems = invRows.length
     const outOfStock = invRows.filter((r) => parseFloat(r.quantity ?? '0') === 0).length
@@ -30,14 +29,12 @@ export const getDashboardStats = createServerFn({ method: 'GET' }).handler(
     const lowStockPct = totalItems ? Math.round((lowStock / totalItems) * 100) : 0
     const outOfStockPct = totalItems ? Math.round((outOfStock / totalItems) * 100) : 0
 
-    // Category count
     const catRows = await db
       .selectDistinct({ category: products.category })
       .from(products)
-      .where(eq(products.hotelId, hotelId))
+      .where(eq(products.branchId, branchId))
     const totalCategories = catRows.length
 
-    // Valuation — quantity × pricePerStockUnit (computed from packaging)
     const valRows = await db
       .select({
         quantity: inventory.quantity,
@@ -50,7 +47,8 @@ export const getDashboardStats = createServerFn({ method: 'GET' }).handler(
       })
       .from(inventory)
       .leftJoin(products, eq(inventory.productId, products.id))
-      .where(eq(inventory.hotelId, hotelId))
+      .where(eq(inventory.branchId, branchId))
+
     const totalValuation = valRows.reduce((sum, r) => {
       const qty = parseFloat(r.quantity ?? '0')
       const pricing: ProductPricing = {
@@ -64,13 +62,12 @@ export const getDashboardStats = createServerFn({ method: 'GET' }).handler(
       return sum + qty * pricePerStockUnit(pricing)
     }, 0)
 
-    // Active lists — pending, shopping, in_review
     const activeListRows = await db
       .select({ id: shoppingLists.id, totalValue: shoppingLists.totalValue })
       .from(shoppingLists)
       .where(
         and(
-          eq(shoppingLists.hotelId, hotelId),
+          eq(shoppingLists.branchId, branchId),
           inArray(shoppingLists.status, ['pending', 'shopping', 'in_review', 'on_hold']),
         ),
       )
@@ -92,12 +89,12 @@ export const getDashboardStats = createServerFn({ method: 'GET' }).handler(
       activeShoppingLists,
       activeListsValue,
     }
-  },
-)
+  })
 
-export const getRecentListActivity = createServerFn({ method: 'GET' }).handler(
-  async (): Promise<RecentListActivity[]> => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
+export const getRecentListActivity = createServerFn({ method: 'GET' })
+  .inputValidator((branchId: string) => branchId)
+  .handler(async ({ data: branchId }): Promise<RecentListActivity[]> => {
+    await getAuthContext()
 
     const rows = await db
       .select({
@@ -112,7 +109,7 @@ export const getRecentListActivity = createServerFn({ method: 'GET' }).handler(
       })
       .from(shoppingLists)
       .leftJoin(users, eq(shoppingLists.createdBy, users.id))
-      .where(eq(shoppingLists.hotelId, hotelId))
+      .where(eq(shoppingLists.branchId, branchId))
       .orderBy(desc(shoppingLists.createdAt))
       .limit(10)
 
@@ -125,5 +122,4 @@ export const getRecentListActivity = createServerFn({ method: 'GET' }).handler(
       status: r.status,
       priority: r.priority,
     }))
-  },
-)
+  })

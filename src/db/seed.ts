@@ -7,13 +7,14 @@ const client = postgres(process.env.DATABASE_URL!)
 const db = drizzle(client, { schema })
 
 // Fixed UUIDs so .env can be pre-configured
-const HOTEL_ID = '00000000-0000-0000-0000-000000000001'
-const MANAGER_ID = '00000000-0000-0000-0000-000000000002'
+const COMPANY_ID = '00000000-0000-0000-0000-000000000000'
+const BRANCH_ID = '00000000-0000-0000-0000-000000000001'
+const OWNER_ID = '00000000-0000-0000-0000-000000000002'
 
 async function main() {
   console.log('🌱 Seeding ProcureFlow database...')
 
-  // Clear existing data (cascade from hotel handles most tables)
+  // Clear existing data (cascade from branch handles most tables)
   await db.delete(schema.inventoryTransactions)
   await db.delete(schema.inventory)
   await db.delete(schema.shoppingListItems)
@@ -21,26 +22,36 @@ async function main() {
   await db.delete(schema.stations)
   await db.delete(schema.productSuppliers)
   await db.delete(schema.products)
+  await db.delete(schema.branchMembers)
+  await db.delete(schema.companyMembers)
   await db.delete(schema.users)
+  await db.delete(schema.branches)
+  await db.delete(schema.companies)
   console.log('🗑️  Cleared existing data')
 
-  // ─── Hotel ────────────────────────────────────────────────────────────────
-  const [hotel] = await db
-    .insert(schema.hotels)
-    .values({ id: HOTEL_ID, name: 'The Grand Palms Hotel' })
-    .onConflictDoUpdate({ target: schema.hotels.id, set: { name: 'The Grand Palms Hotel' } })
+  // ─── Company ──────────────────────────────────────────────────────────────
+  const [company] = await db
+    .insert(schema.companies)
+    .values({ id: COMPANY_ID, name: 'The Grand Palms Hotel', bio: 'Luxury resort & fine dining', tier: 'starter' })
+    .onConflictDoUpdate({ target: schema.companies.id, set: { name: 'The Grand Palms Hotel' } })
     .returning()
-  console.log(`✅ Hotel: ${hotel.name} (${hotel.id})`)
+  console.log(`✅ Company: ${company.name} (${company.id})`)
+
+  // ─── Branch ───────────────────────────────────────────────────────────────
+  const [branch] = await db
+    .insert(schema.branches)
+    .values({ id: BRANCH_ID, companyId: company.id, name: 'Main Kitchen' })
+    .onConflictDoUpdate({ target: schema.branches.id, set: { name: 'Main Kitchen' } })
+    .returning()
+  console.log(`✅ Branch: ${branch.name} (${branch.id})`)
 
   // ─── Users ────────────────────────────────────────────────────────────────
-  const [manager] = await db
+  const [owner] = await db
     .insert(schema.users)
     .values({
-      id: MANAGER_ID,
-      hotelId: hotel.id,
+      id: OWNER_ID,
       name: 'Marcus Vane',
       email: 'marcus@grandpalms.com',
-      role: 'manager',
     })
     .onConflictDoUpdate({ target: schema.users.id, set: { name: 'Marcus Vane' } })
     .returning()
@@ -48,24 +59,33 @@ async function main() {
   const [runner] = await db
     .insert(schema.users)
     .values({
-      hotelId: hotel.id,
       name: 'Jane Doe',
       email: 'jane@grandpalms.com',
-      role: 'runner',
     })
     .returning()
 
   const [runner2] = await db
     .insert(schema.users)
     .values({
-      hotelId: hotel.id,
       name: 'Marcus V.',
       email: 'marcusv@grandpalms.com',
-      role: 'runner',
     })
     .returning()
 
-  console.log(`✅ Users: ${manager.name}, ${runner.name}, ${runner2.name}`)
+  console.log(`✅ Users: ${owner.name}, ${runner.name}, ${runner2.name}`)
+
+  // ─── Memberships ──────────────────────────────────────────────────────────
+  await db.insert(schema.companyMembers).values({
+    companyId: company.id,
+    userId: owner.id,
+    role: 'owner',
+  })
+
+  await db.insert(schema.branchMembers).values([
+    { branchId: branch.id, userId: runner.id, role: 'runner' },
+    { branchId: branch.id, userId: runner2.id, role: 'runner' },
+  ])
+  console.log(`✅ Memberships: owner + 2 runners`)
 
   // ─── Products (packaging-aware) ───────────────────────────────────────────
   const productData = [
@@ -96,7 +116,7 @@ async function main() {
   const insertedProducts = await db
     .insert(schema.products)
     .values(productData.map(({ supplierName, ...p }) => ({
-      hotelId: hotel.id,
+      branchId: branch.id,
       name: p.name,
       stockUnit: p.stockUnit,
       category: p.category,
@@ -127,10 +147,10 @@ async function main() {
   const [list1] = await db
     .insert(schema.shoppingLists)
     .values({
-      hotelId: hotel.id,
+      branchId: branch.id,
       name: 'Weekly Produce Order',
       priority: 'normal',
-      createdBy: manager.id,
+      createdBy: owner.id,
       assignedTo: runner.id,
       status: 'pending',
       totalValue: '2450.00',
@@ -140,10 +160,10 @@ async function main() {
   const [list2] = await db
     .insert(schema.shoppingLists)
     .values({
-      hotelId: hotel.id,
+      branchId: branch.id,
       name: 'Dry Goods Refill',
       priority: 'urgent',
-      createdBy: manager.id,
+      createdBy: owner.id,
       assignedTo: runner2.id,
       status: 'in_review',
       totalValue: '840.12',
@@ -154,10 +174,10 @@ async function main() {
   const [list3] = await db
     .insert(schema.shoppingLists)
     .values({
-      hotelId: hotel.id,
+      branchId: branch.id,
       name: 'Protein & Dairy Stock-Up',
       priority: 'normal',
-      createdBy: manager.id,
+      createdBy: owner.id,
       assignedTo: runner.id,
       status: 'completed',
       totalValue: '3200.00',
@@ -255,7 +275,7 @@ async function main() {
 
   await db.insert(schema.inventory).values(
     inventoryData.map(({ name, quantity }) => ({
-      hotelId: hotel.id,
+      branchId: branch.id,
       productId: productMap[name].id,
       quantity,
     })),
@@ -276,30 +296,31 @@ async function main() {
 
   await db.insert(schema.inventoryTransactions).values(
     txData.map(({ name, type, qty, method, station }) => ({
-      hotelId: hotel.id,
+      branchId: branch.id,
       productId: productMap[name].id,
       type,
       quantityStock: qty,
       unitAtEntry: 'stock',
       method,
       station,
-      createdBy: manager.id,
+      createdBy: owner.id,
     })),
   )
   console.log(`✅ Inventory Transactions: inserted`)
 
   // ─── Stations ─────────────────────────────────────────────────────────────
   await db.insert(schema.stations).values([
-    { hotelId: hotel.id, name: 'Main Kitchen' },
-    { hotelId: hotel.id, name: 'Pastry Section' },
-    { hotelId: hotel.id, name: 'Pool Bar' },
+    { branchId: branch.id, name: 'Main Kitchen' },
+    { branchId: branch.id, name: 'Pastry Section' },
+    { branchId: branch.id, name: 'Pool Bar' },
   ])
   console.log(`✅ Stations: 3 inserted`)
 
   console.log('\n✨ Seed complete!')
   console.log(`\n📋 Summary:`)
-  console.log(`   Hotel ID: ${hotel.id}`)
-  console.log(`   Manager ID: ${manager.id}`)
+  console.log(`   Company ID: ${company.id}`)
+  console.log(`   Branch ID: ${branch.id}`)
+  console.log(`   Owner ID: ${owner.id}`)
   console.log(`   Runner ID: ${runner.id}`)
 }
 

@@ -28,6 +28,7 @@ import { formatRelativeTime, formatCurrencyFull } from '@/lib/format'
 import { buildReceivingColumns, type ReceivingItemRow } from './receiving-columns'
 import { useReceivingConfirmation } from '@/stores/receiving-confirmation'
 import { receivingKeys } from '@/lib/query-manager/receiving/keys'
+import { usePermissions } from '@/hooks/use-permissions'
 
 const routeApi = getRouteApi('/receiving/$listId')
 
@@ -59,6 +60,7 @@ export function ReceivingDetailPage() {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const stableOrderRef = useRef<string[] | null>(null)
 
+  const { canApproveReceiving } = usePermissions()
   const updateQtyMutation = useUpdateReceivedQuantity()
   const approveItemMutation = useApproveItem()
   const approveListMutation = useApproveList()
@@ -201,7 +203,7 @@ export function ReceivingDetailPage() {
     listCompleted,
     getItemStatus,
     handleQuantityChange,
-    handleApproveItem,
+    handleApproveItem: canApproveReceiving ? handleApproveItem : undefined,
     handleConfirmItem,
     approveItemMutation: {
       isPending: approveItemMutation.isPending,
@@ -392,18 +394,20 @@ export function ReceivingDetailPage() {
                 Hold
               </Button>
             )}
-            <Button
-              onClick={handleApproveAll}
-              disabled={approveListMutation.isPending || listCompleted || listOnHold || !allConfirmed}
-              className="gap-2"
-            >
-              {approveListMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <CheckCircle className="h-4 w-4" />
-              )}
-              Approve All &amp; Add to Pantry
-            </Button>
+            {canApproveReceiving && (
+              <Button
+                onClick={handleApproveAll}
+                disabled={approveListMutation.isPending || listCompleted || listOnHold || !allConfirmed}
+                className="gap-2"
+              >
+                {approveListMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle className="h-4 w-4" />
+                )}
+                Approve All &amp; Add to Pantry
+              </Button>
+            )}
           </div>
         </div>
       </div>

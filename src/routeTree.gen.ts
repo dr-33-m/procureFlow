@@ -13,13 +13,23 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ShoppingListsIndexRouteImport } from './routes/shopping-lists/index'
 import { Route as ReceivingIndexRouteImport } from './routes/receiving/index'
 import { Route as PantryIndexRouteImport } from './routes/pantry/index'
+import { Route as MembersIndexRouteImport } from './routes/members/index'
 import { Route as IssuanceIndexRouteImport } from './routes/issuance/index'
 import { Route as ShoppingListsCreateRouteImport } from './routes/shopping-lists/create'
+import { Route as SettingsProfileRouteImport } from './routes/settings/profile'
+import { Route as SettingsCompanyRouteImport } from './routes/settings/company'
 import { Route as ReceivingListIdRouteImport } from './routes/receiving/$listId'
+import { Route as OnboardingRoleSelectRouteImport } from './routes/onboarding/role-select'
+import { Route as OnboardingJoinRouteImport } from './routes/onboarding/join'
+import { Route as OnboardingCreateCompanyRouteImport } from './routes/onboarding/create-company'
 import { Route as IssuanceActivityRouteImport } from './routes/issuance/activity'
 import { Route as ShoppingListsIdIndexRouteImport } from './routes/shopping-lists/$id/index'
+import { Route as AuthSignOutIndexRouteImport } from './routes/auth/sign-out/index'
+import { Route as AuthSignInIndexRouteImport } from './routes/auth/sign-in/index'
 import { Route as ShoppingListsIdRunRouteImport } from './routes/shopping-lists/$id/run'
 import { Route as ShoppingListsIdEditRouteImport } from './routes/shopping-lists/$id/edit'
+import { Route as AuthSignOutCallbackRouteImport } from './routes/auth/sign-out/callback'
+import { Route as AuthSignInCallbackRouteImport } from './routes/auth/sign-in/callback'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -41,6 +51,11 @@ const PantryIndexRoute = PantryIndexRouteImport.update({
   path: '/pantry/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MembersIndexRoute = MembersIndexRouteImport.update({
+  id: '/members/',
+  path: '/members/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IssuanceIndexRoute = IssuanceIndexRouteImport.update({
   id: '/issuance/',
   path: '/issuance/',
@@ -51,9 +66,34 @@ const ShoppingListsCreateRoute = ShoppingListsCreateRouteImport.update({
   path: '/shopping-lists/create',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsProfileRoute = SettingsProfileRouteImport.update({
+  id: '/settings/profile',
+  path: '/settings/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsCompanyRoute = SettingsCompanyRouteImport.update({
+  id: '/settings/company',
+  path: '/settings/company',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReceivingListIdRoute = ReceivingListIdRouteImport.update({
   id: '/receiving/$listId',
   path: '/receiving/$listId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingRoleSelectRoute = OnboardingRoleSelectRouteImport.update({
+  id: '/onboarding/role-select',
+  path: '/onboarding/role-select',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingJoinRoute = OnboardingJoinRouteImport.update({
+  id: '/onboarding/join',
+  path: '/onboarding/join',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingCreateCompanyRoute = OnboardingCreateCompanyRouteImport.update({
+  id: '/onboarding/create-company',
+  path: '/onboarding/create-company',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IssuanceActivityRoute = IssuanceActivityRouteImport.update({
@@ -66,6 +106,16 @@ const ShoppingListsIdIndexRoute = ShoppingListsIdIndexRouteImport.update({
   path: '/shopping-lists/$id/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthSignOutIndexRoute = AuthSignOutIndexRouteImport.update({
+  id: '/auth/sign-out/',
+  path: '/auth/sign-out/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthSignInIndexRoute = AuthSignInIndexRouteImport.update({
+  id: '/auth/sign-in/',
+  path: '/auth/sign-in/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ShoppingListsIdRunRoute = ShoppingListsIdRunRouteImport.update({
   id: '/shopping-lists/$id/run',
   path: '/shopping-lists/$id/run',
@@ -76,45 +126,85 @@ const ShoppingListsIdEditRoute = ShoppingListsIdEditRouteImport.update({
   path: '/shopping-lists/$id/edit',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthSignOutCallbackRoute = AuthSignOutCallbackRouteImport.update({
+  id: '/auth/sign-out/callback',
+  path: '/auth/sign-out/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthSignInCallbackRoute = AuthSignInCallbackRouteImport.update({
+  id: '/auth/sign-in/callback',
+  path: '/auth/sign-in/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/issuance/activity': typeof IssuanceActivityRoute
+  '/onboarding/create-company': typeof OnboardingCreateCompanyRoute
+  '/onboarding/join': typeof OnboardingJoinRoute
+  '/onboarding/role-select': typeof OnboardingRoleSelectRoute
   '/receiving/$listId': typeof ReceivingListIdRoute
+  '/settings/company': typeof SettingsCompanyRoute
+  '/settings/profile': typeof SettingsProfileRoute
   '/shopping-lists/create': typeof ShoppingListsCreateRoute
   '/issuance/': typeof IssuanceIndexRoute
+  '/members/': typeof MembersIndexRoute
   '/pantry/': typeof PantryIndexRoute
   '/receiving/': typeof ReceivingIndexRoute
   '/shopping-lists/': typeof ShoppingListsIndexRoute
+  '/auth/sign-in/callback': typeof AuthSignInCallbackRoute
+  '/auth/sign-out/callback': typeof AuthSignOutCallbackRoute
   '/shopping-lists/$id/edit': typeof ShoppingListsIdEditRoute
   '/shopping-lists/$id/run': typeof ShoppingListsIdRunRoute
+  '/auth/sign-in/': typeof AuthSignInIndexRoute
+  '/auth/sign-out/': typeof AuthSignOutIndexRoute
   '/shopping-lists/$id/': typeof ShoppingListsIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/issuance/activity': typeof IssuanceActivityRoute
+  '/onboarding/create-company': typeof OnboardingCreateCompanyRoute
+  '/onboarding/join': typeof OnboardingJoinRoute
+  '/onboarding/role-select': typeof OnboardingRoleSelectRoute
   '/receiving/$listId': typeof ReceivingListIdRoute
+  '/settings/company': typeof SettingsCompanyRoute
+  '/settings/profile': typeof SettingsProfileRoute
   '/shopping-lists/create': typeof ShoppingListsCreateRoute
   '/issuance': typeof IssuanceIndexRoute
+  '/members': typeof MembersIndexRoute
   '/pantry': typeof PantryIndexRoute
   '/receiving': typeof ReceivingIndexRoute
   '/shopping-lists': typeof ShoppingListsIndexRoute
+  '/auth/sign-in/callback': typeof AuthSignInCallbackRoute
+  '/auth/sign-out/callback': typeof AuthSignOutCallbackRoute
   '/shopping-lists/$id/edit': typeof ShoppingListsIdEditRoute
   '/shopping-lists/$id/run': typeof ShoppingListsIdRunRoute
+  '/auth/sign-in': typeof AuthSignInIndexRoute
+  '/auth/sign-out': typeof AuthSignOutIndexRoute
   '/shopping-lists/$id': typeof ShoppingListsIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/issuance/activity': typeof IssuanceActivityRoute
+  '/onboarding/create-company': typeof OnboardingCreateCompanyRoute
+  '/onboarding/join': typeof OnboardingJoinRoute
+  '/onboarding/role-select': typeof OnboardingRoleSelectRoute
   '/receiving/$listId': typeof ReceivingListIdRoute
+  '/settings/company': typeof SettingsCompanyRoute
+  '/settings/profile': typeof SettingsProfileRoute
   '/shopping-lists/create': typeof ShoppingListsCreateRoute
   '/issuance/': typeof IssuanceIndexRoute
+  '/members/': typeof MembersIndexRoute
   '/pantry/': typeof PantryIndexRoute
   '/receiving/': typeof ReceivingIndexRoute
   '/shopping-lists/': typeof ShoppingListsIndexRoute
+  '/auth/sign-in/callback': typeof AuthSignInCallbackRoute
+  '/auth/sign-out/callback': typeof AuthSignOutCallbackRoute
   '/shopping-lists/$id/edit': typeof ShoppingListsIdEditRoute
   '/shopping-lists/$id/run': typeof ShoppingListsIdRunRoute
+  '/auth/sign-in/': typeof AuthSignInIndexRoute
+  '/auth/sign-out/': typeof AuthSignOutIndexRoute
   '/shopping-lists/$id/': typeof ShoppingListsIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -122,54 +212,94 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/issuance/activity'
+    | '/onboarding/create-company'
+    | '/onboarding/join'
+    | '/onboarding/role-select'
     | '/receiving/$listId'
+    | '/settings/company'
+    | '/settings/profile'
     | '/shopping-lists/create'
     | '/issuance/'
+    | '/members/'
     | '/pantry/'
     | '/receiving/'
     | '/shopping-lists/'
+    | '/auth/sign-in/callback'
+    | '/auth/sign-out/callback'
     | '/shopping-lists/$id/edit'
     | '/shopping-lists/$id/run'
+    | '/auth/sign-in/'
+    | '/auth/sign-out/'
     | '/shopping-lists/$id/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/issuance/activity'
+    | '/onboarding/create-company'
+    | '/onboarding/join'
+    | '/onboarding/role-select'
     | '/receiving/$listId'
+    | '/settings/company'
+    | '/settings/profile'
     | '/shopping-lists/create'
     | '/issuance'
+    | '/members'
     | '/pantry'
     | '/receiving'
     | '/shopping-lists'
+    | '/auth/sign-in/callback'
+    | '/auth/sign-out/callback'
     | '/shopping-lists/$id/edit'
     | '/shopping-lists/$id/run'
+    | '/auth/sign-in'
+    | '/auth/sign-out'
     | '/shopping-lists/$id'
   id:
     | '__root__'
     | '/'
     | '/issuance/activity'
+    | '/onboarding/create-company'
+    | '/onboarding/join'
+    | '/onboarding/role-select'
     | '/receiving/$listId'
+    | '/settings/company'
+    | '/settings/profile'
     | '/shopping-lists/create'
     | '/issuance/'
+    | '/members/'
     | '/pantry/'
     | '/receiving/'
     | '/shopping-lists/'
+    | '/auth/sign-in/callback'
+    | '/auth/sign-out/callback'
     | '/shopping-lists/$id/edit'
     | '/shopping-lists/$id/run'
+    | '/auth/sign-in/'
+    | '/auth/sign-out/'
     | '/shopping-lists/$id/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   IssuanceActivityRoute: typeof IssuanceActivityRoute
+  OnboardingCreateCompanyRoute: typeof OnboardingCreateCompanyRoute
+  OnboardingJoinRoute: typeof OnboardingJoinRoute
+  OnboardingRoleSelectRoute: typeof OnboardingRoleSelectRoute
   ReceivingListIdRoute: typeof ReceivingListIdRoute
+  SettingsCompanyRoute: typeof SettingsCompanyRoute
+  SettingsProfileRoute: typeof SettingsProfileRoute
   ShoppingListsCreateRoute: typeof ShoppingListsCreateRoute
   IssuanceIndexRoute: typeof IssuanceIndexRoute
+  MembersIndexRoute: typeof MembersIndexRoute
   PantryIndexRoute: typeof PantryIndexRoute
   ReceivingIndexRoute: typeof ReceivingIndexRoute
   ShoppingListsIndexRoute: typeof ShoppingListsIndexRoute
+  AuthSignInCallbackRoute: typeof AuthSignInCallbackRoute
+  AuthSignOutCallbackRoute: typeof AuthSignOutCallbackRoute
   ShoppingListsIdEditRoute: typeof ShoppingListsIdEditRoute
   ShoppingListsIdRunRoute: typeof ShoppingListsIdRunRoute
+  AuthSignInIndexRoute: typeof AuthSignInIndexRoute
+  AuthSignOutIndexRoute: typeof AuthSignOutIndexRoute
   ShoppingListsIdIndexRoute: typeof ShoppingListsIdIndexRoute
 }
 
@@ -203,6 +333,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PantryIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/members/': {
+      id: '/members/'
+      path: '/members'
+      fullPath: '/members/'
+      preLoaderRoute: typeof MembersIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/issuance/': {
       id: '/issuance/'
       path: '/issuance'
@@ -217,11 +354,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShoppingListsCreateRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/profile': {
+      id: '/settings/profile'
+      path: '/settings/profile'
+      fullPath: '/settings/profile'
+      preLoaderRoute: typeof SettingsProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/company': {
+      id: '/settings/company'
+      path: '/settings/company'
+      fullPath: '/settings/company'
+      preLoaderRoute: typeof SettingsCompanyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/receiving/$listId': {
       id: '/receiving/$listId'
       path: '/receiving/$listId'
       fullPath: '/receiving/$listId'
       preLoaderRoute: typeof ReceivingListIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding/role-select': {
+      id: '/onboarding/role-select'
+      path: '/onboarding/role-select'
+      fullPath: '/onboarding/role-select'
+      preLoaderRoute: typeof OnboardingRoleSelectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding/join': {
+      id: '/onboarding/join'
+      path: '/onboarding/join'
+      fullPath: '/onboarding/join'
+      preLoaderRoute: typeof OnboardingJoinRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding/create-company': {
+      id: '/onboarding/create-company'
+      path: '/onboarding/create-company'
+      fullPath: '/onboarding/create-company'
+      preLoaderRoute: typeof OnboardingCreateCompanyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/issuance/activity': {
@@ -238,6 +410,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShoppingListsIdIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/sign-out/': {
+      id: '/auth/sign-out/'
+      path: '/auth/sign-out'
+      fullPath: '/auth/sign-out/'
+      preLoaderRoute: typeof AuthSignOutIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/sign-in/': {
+      id: '/auth/sign-in/'
+      path: '/auth/sign-in'
+      fullPath: '/auth/sign-in/'
+      preLoaderRoute: typeof AuthSignInIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/shopping-lists/$id/run': {
       id: '/shopping-lists/$id/run'
       path: '/shopping-lists/$id/run'
@@ -252,20 +438,44 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShoppingListsIdEditRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/sign-out/callback': {
+      id: '/auth/sign-out/callback'
+      path: '/auth/sign-out/callback'
+      fullPath: '/auth/sign-out/callback'
+      preLoaderRoute: typeof AuthSignOutCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/sign-in/callback': {
+      id: '/auth/sign-in/callback'
+      path: '/auth/sign-in/callback'
+      fullPath: '/auth/sign-in/callback'
+      preLoaderRoute: typeof AuthSignInCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   IssuanceActivityRoute: IssuanceActivityRoute,
+  OnboardingCreateCompanyRoute: OnboardingCreateCompanyRoute,
+  OnboardingJoinRoute: OnboardingJoinRoute,
+  OnboardingRoleSelectRoute: OnboardingRoleSelectRoute,
   ReceivingListIdRoute: ReceivingListIdRoute,
+  SettingsCompanyRoute: SettingsCompanyRoute,
+  SettingsProfileRoute: SettingsProfileRoute,
   ShoppingListsCreateRoute: ShoppingListsCreateRoute,
   IssuanceIndexRoute: IssuanceIndexRoute,
+  MembersIndexRoute: MembersIndexRoute,
   PantryIndexRoute: PantryIndexRoute,
   ReceivingIndexRoute: ReceivingIndexRoute,
   ShoppingListsIndexRoute: ShoppingListsIndexRoute,
+  AuthSignInCallbackRoute: AuthSignInCallbackRoute,
+  AuthSignOutCallbackRoute: AuthSignOutCallbackRoute,
   ShoppingListsIdEditRoute: ShoppingListsIdEditRoute,
   ShoppingListsIdRunRoute: ShoppingListsIdRunRoute,
+  AuthSignInIndexRoute: AuthSignInIndexRoute,
+  AuthSignOutIndexRoute: AuthSignOutIndexRoute,
   ShoppingListsIdIndexRoute: ShoppingListsIdIndexRoute,
 }
 export const routeTree = rootRouteImport

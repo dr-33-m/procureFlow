@@ -16,29 +16,35 @@ import {
   createProductSupplier,
   deleteProductSupplier,
 } from '@/server/pantry'
+import { useBranchContext } from '@/stores/branch-context'
 
 export function usePantryStats() {
-  return useQuery(getPantryStatsOptions())
+  const branchId = useBranchContext((s) => s.activeBranchId)
+  return useQuery(getPantryStatsOptions(branchId))
 }
 
-export function useInventoryItems(params: PantryItemsParams) {
-  return useQuery(getInventoryItemsOptions(params))
+export function useInventoryItems(params: Omit<PantryItemsParams, 'branchId'>) {
+  const branchId = useBranchContext((s) => s.activeBranchId)
+  return useQuery(getInventoryItemsOptions({ ...params, branchId }))
 }
 
 export function useCategories() {
-  return useQuery(getCategoriesOptions())
+  const branchId = useBranchContext((s) => s.activeBranchId)
+  return useQuery(getCategoriesOptions(branchId))
 }
 
 export function usePantryCatalog() {
-  return useQuery(getPantryCatalogOptions())
+  const branchId = useBranchContext((s) => s.activeBranchId)
+  return useQuery(getPantryCatalogOptions(branchId))
 }
 
 export function useAddInventoryItem() {
   const queryClient = useQueryClient()
+  const branchId = useBranchContext((s) => s.activeBranchId)
 
   return useMutation({
     mutationFn: (data: { productId: string; quantity: number; quantityUnit?: 'stock' | 'purchase' }) =>
-      addInventoryItem({ data }),
+      addInventoryItem({ data: { ...data, branchId } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pantryKeys.all })
       toast.success('Item added to inventory')
@@ -51,6 +57,7 @@ export function useAddInventoryItem() {
 
 export function useUpdateInventoryItem() {
   const queryClient = useQueryClient()
+  const branchId = useBranchContext((s) => s.activeBranchId)
 
   return useMutation({
     mutationFn: (data: {
@@ -59,7 +66,7 @@ export function useUpdateInventoryItem() {
       parPerGuest?: number | null
       purchasePrice?: number | null
       barcode?: string | null
-    }) => updateInventoryItem({ data }),
+    }) => updateInventoryItem({ data: { ...data, branchId } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pantryKeys.all })
       toast.success('Item updated')
@@ -73,9 +80,10 @@ export function useUpdateInventoryItem() {
 
 export function useDeleteInventoryItem() {
   const queryClient = useQueryClient()
+  const branchId = useBranchContext((s) => s.activeBranchId)
 
   return useMutation({
-    mutationFn: (inventoryId: string) => deleteInventoryItem({ data: inventoryId }),
+    mutationFn: (inventoryId: string) => deleteInventoryItem({ data: { inventoryId, branchId } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pantryKeys.all })
       toast.success('Item deleted')
@@ -88,9 +96,12 @@ export function useDeleteInventoryItem() {
 
 export function useCreateProduct() {
   const queryClient = useQueryClient()
+  const branchId = useBranchContext((s) => s.activeBranchId)
 
   return useMutation({
-    mutationFn: (data: Parameters<typeof createProduct>[0]['data']) => createProduct({ data }),
+    mutationFn: (
+      data: Omit<Parameters<typeof createProduct>[0]['data'], 'branchId'>,
+    ) => createProduct({ data: { ...data, branchId } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pantryKeys.all })
       toast.success('Product created and added to inventory')
@@ -134,10 +145,11 @@ export function useDeleteProductSupplier() {
 
 export function useImportInventoryFromCSV() {
   const queryClient = useQueryClient()
+  const branchId = useBranchContext((s) => s.activeBranchId)
 
   return useMutation({
-    mutationFn: (rows: Parameters<typeof importInventoryFromCSV>[0]['data']) =>
-      importInventoryFromCSV({ data: rows }),
+    mutationFn: (rows: Omit<Parameters<typeof importInventoryFromCSV>[0]['data'], 'branchId'>) =>
+      importInventoryFromCSV({ data: { ...rows, branchId } }),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: pantryKeys.all })
       toast.success(`${result.imported} items imported successfully`)

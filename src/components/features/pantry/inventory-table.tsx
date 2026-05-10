@@ -36,7 +36,7 @@ function getStockStatus(qty: string | null) {
 }
 
 interface InventoryTableProps {
-  onEdit: (item: InventoryWithProduct) => void
+  onEdit?: (item: InventoryWithProduct) => void
 }
 
 export function InventoryTable({ onEdit }: InventoryTableProps) {
@@ -153,7 +153,10 @@ export function InventoryTable({ onEdit }: InventoryTableProps) {
         </span>
       ),
     },
-    {
+  ]
+
+  if (onEdit) {
+    const editCol: ColumnDef<InventoryWithProduct> = {
       key: 'actions',
       header: '',
       className: 'w-10',
@@ -184,8 +187,9 @@ export function InventoryTable({ onEdit }: InventoryTableProps) {
           </DropdownMenuContent>
         </DropdownMenu>
       ),
-    },
-  ]
+    }
+    columns.push(editCol)
+  }
 
   return (
     <>

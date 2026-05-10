@@ -6,13 +6,16 @@ import {
 } from '@/lib/query-manager/receiving/options'
 import { receivingKeys } from '@/lib/query-manager/receiving/keys'
 import { scanItem, updateReceivedQuantity, approveItem, approveList } from '@/server/receiving'
+import { useBranchContext } from '@/stores/branch-context'
 
 export function useReceivingLists() {
-  return useQuery(getReceivingListsOptions())
+  const branchId = useBranchContext((s) => s.activeBranchId)
+  return useQuery(getReceivingListsOptions(branchId))
 }
 
 export function useReceivingList(id: string) {
-  return useQuery(getReceivingListOptions(id))
+  const branchId = useBranchContext((s) => s.activeBranchId)
+  return useQuery(getReceivingListOptions(branchId, id))
 }
 
 export function useScanItem() {
@@ -52,9 +55,10 @@ export function useUpdateReceivedQuantity() {
 
 export function useApproveItem() {
   const queryClient = useQueryClient()
+  const branchId = useBranchContext((s) => s.activeBranchId)
 
   return useMutation({
-    mutationFn: (itemId: string) => approveItem({ data: itemId }),
+    mutationFn: (itemId: string) => approveItem({ data: { itemId, branchId } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: receivingKeys.all })
       toast.success('Item added to pantry')
@@ -67,9 +71,10 @@ export function useApproveItem() {
 
 export function useApproveList() {
   const queryClient = useQueryClient()
+  const branchId = useBranchContext((s) => s.activeBranchId)
 
   return useMutation({
-    mutationFn: (listId: string) => approveList({ data: listId }),
+    mutationFn: (listId: string) => approveList({ data: { listId, branchId } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: receivingKeys.all })
       toast.success('All items approved — added to pantry')

@@ -8,10 +8,18 @@ import {
   inventory,
   productSuppliers,
   inventoryTransactions,
+  branchMembers,
 } from '@/db'
 import { eq, and, desc, count, inArray, sql, isNotNull, gte } from 'drizzle-orm'
 import { pricePerStockUnit, purchasePackSizeOrOne, type ProductPricing } from '@/server/lib/pricing'
-import type { ProductSupplier, RestockSuggestion } from '@/types'
+import { getAuthContext, requireRole } from '@/server/auth/context'
+import type {
+  ProductSupplier,
+  RestockSuggestion,
+  ShoppingListWithDetails,
+  ShoppingListDetail,
+  ProductWithStock,
+} from '@/types'
 
 const LOOKBACK_DAYS: Record<string, number> = {
   weekly: 60,
@@ -23,28 +31,15 @@ const DEFAULT_LOOKBACK = 90
 const HOTEL_DEFAULT_LEAD_TIME = 3
 const Z_95 = 1.65
 
-export const updateShoppingListStatus = createServerFn({ method: 'POST' })
-  .inputValidator((data: { id: string; status: string }) => data)
-  .handler(async ({ data }) => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
-
-    await db
-      .update(shoppingLists)
-      .set({ status: data.status, updatedAt: new Date() })
-      .where(and(eq(shoppingLists.id, data.id), eq(shoppingLists.hotelId, hotelId)))
-
-    return { success: true }
-  })
-import type { ShoppingListWithDetails, ShoppingListDetail, ProductWithStock } from '@/types'
-
-export const getShoppingLists = createServerFn({ method: 'GET' }).handler(
-  async (): Promise<ShoppingListWithDetails[]> => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
+export const getShoppingLists = createServerFn({ method: 'GET' })
+  .inputValidator((branchId: string) => branchId)
+  .handler(async ({ data: branchId }): Promise<ShoppingListWithDetails[]> => {
+    const ctx = await getAuthContext()
 
     const rows = await db
       .select({
         id: shoppingLists.id,
-        hotelId: shoppingLists.hotelId,
+        branchId: shoppingLists.branchId,
         name: shoppingLists.name,
         priority: shoppingLists.priority,
         status: shoppingLists.status,
@@ -66,7 +61,11 @@ export const getShoppingLists = createServerFn({ method: 'GET' }).handler(
       })
       .from(shoppingLists)
       .leftJoin(users, eq(shoppingLists.createdBy, users.id))
-      .where(eq(shoppingLists.hotelId, hotelId))
+      .where(
+        ctx.userRole === 'runner'
+          ? and(eq(shoppingLists.branchId, branchId), eq(shoppingLists.assignedTo, ctx.userId))
+          : eq(shoppingLists.branchId, branchId),
+      )
       .orderBy(desc(shoppingLists.createdAt))
 
     const itemCounts = await db
@@ -77,30 +76,30 @@ export const getShoppingLists = createServerFn({ method: 'GET' }).handler(
       itemCounts.map((r) => [r.shoppingListId, r.count]),
     )
 
-    const runnerRows = await db
-      .select({ id: users.id, name: users.name })
-      .from(users)
-      .where(eq(users.hotelId, hotelId))
-    const runnerMap = Object.fromEntries(runnerRows.map((r) => [r.id, r.name]))
+    const memberRows = await db
+      .select({ userId: branchMembers.userId, name: users.name })
+      .from(branchMembers)
+      .leftJoin(users, eq(branchMembers.userId, users.id))
+      .where(eq(branchMembers.branchId, branchId))
+    const memberMap = Object.fromEntries(memberRows.map((r) => [r.userId, r.name ?? '']))
 
     return rows.map((r) => ({
       ...r,
-      creatorName: r.creatorName,
-      runnerName: r.assignedTo ? (runnerMap[r.assignedTo] ?? null) : null,
+      creatorName: r.creatorName ?? null,
+      runnerName: r.assignedTo ? (memberMap[r.assignedTo] ?? null) : null,
       itemCount: countMap[r.id] ?? 0,
     }))
-  },
-)
+  })
 
 export const getShoppingList = createServerFn({ method: 'GET' })
-  .inputValidator((id: string) => id)
-  .handler(async ({ data: id }): Promise<ShoppingListDetail | null> => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
+  .inputValidator((data: { branchId: string; id: string }) => data)
+  .handler(async ({ data: { branchId, id } }): Promise<ShoppingListDetail | null> => {
+    await getAuthContext()
 
     const [list] = await db
       .select({
         id: shoppingLists.id,
-        hotelId: shoppingLists.hotelId,
+        branchId: shoppingLists.branchId,
         name: shoppingLists.name,
         priority: shoppingLists.priority,
         status: shoppingLists.status,
@@ -122,7 +121,7 @@ export const getShoppingList = createServerFn({ method: 'GET' })
       })
       .from(shoppingLists)
       .leftJoin(users, eq(shoppingLists.createdBy, users.id))
-      .where(and(eq(shoppingLists.id, id), eq(shoppingLists.hotelId, hotelId)))
+      .where(and(eq(shoppingLists.id, id), eq(shoppingLists.branchId, branchId)))
 
     if (!list) return null
 
@@ -196,22 +195,35 @@ export const getShoppingList = createServerFn({ method: 'GET' })
     }
   })
 
+export const updateShoppingListStatus = createServerFn({ method: 'POST' })
+  .inputValidator((data: { branchId: string; id: string; status: string }) => data)
+  .handler(async ({ data }) => {
+    await getAuthContext()
+
+    await db
+      .update(shoppingLists)
+      .set({ status: data.status, updatedAt: new Date() })
+      .where(and(eq(shoppingLists.id, data.id), eq(shoppingLists.branchId, data.branchId)))
+
+    return { success: true }
+  })
+
 export const deleteShoppingList = createServerFn({ method: 'POST' })
-  .inputValidator((id: string) => id)
-  .handler(async ({ data: id }) => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
+  .inputValidator((data: { branchId: string; id: string }) => data)
+  .handler(async ({ data }) => {
+    await getAuthContext()
 
     const [list] = await db
       .select({ status: shoppingLists.status })
       .from(shoppingLists)
-      .where(and(eq(shoppingLists.id, id), eq(shoppingLists.hotelId, hotelId)))
+      .where(and(eq(shoppingLists.id, data.id), eq(shoppingLists.branchId, data.branchId)))
 
     if (!list || list.status !== 'draft') {
       throw new Error('Only draft lists can be deleted')
     }
 
-    await db.delete(shoppingListItems).where(eq(shoppingListItems.shoppingListId, id))
-    await db.delete(shoppingLists).where(eq(shoppingLists.id, id))
+    await db.delete(shoppingListItems).where(eq(shoppingListItems.shoppingListId, data.id))
+    await db.delete(shoppingLists).where(eq(shoppingLists.id, data.id))
 
     return { success: true }
   })
@@ -226,6 +238,8 @@ export const updateShoppingListItem = createServerFn({ method: 'POST' })
     }) => data,
   )
   .handler(async ({ data }) => {
+    await getAuthContext()
+
     const [updated] = await db
       .update(shoppingListItems)
       .set({
@@ -239,17 +253,23 @@ export const updateShoppingListItem = createServerFn({ method: 'POST' })
     return updated
   })
 
-export const getRunners = createServerFn({ method: 'GET' }).handler(async () => {
-  const hotelId = process.env.MOCK_HOTEL_ID!
-  return db
-    .select({ id: users.id, name: users.name })
-    .from(users)
-    .where(and(eq(users.hotelId, hotelId), eq(users.role, 'runner')))
-})
+export const getRunners = createServerFn({ method: 'GET' })
+  .inputValidator((branchId: string) => branchId)
+  .handler(async ({ data: branchId }) => {
+    await getAuthContext()
 
-export const getProductCatalog = createServerFn({ method: 'GET' }).handler(
-  async () => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
+    return db
+      .select({ id: users.id, name: users.name })
+      .from(branchMembers)
+      .innerJoin(users, eq(branchMembers.userId, users.id))
+      .where(and(eq(branchMembers.branchId, branchId), eq(branchMembers.role, 'runner')))
+  })
+
+export const getProductCatalog = createServerFn({ method: 'GET' })
+  .inputValidator((branchId: string) => branchId)
+  .handler(async ({ data: branchId }) => {
+    await getAuthContext()
+
     return db
       .select({
         id: products.id,
@@ -264,14 +284,15 @@ export const getProductCatalog = createServerFn({ method: 'GET' }).handler(
         baseUnitsPerStock: products.baseUnitsPerStock,
       })
       .from(products)
-      .where(eq(products.hotelId, hotelId))
+      .where(eq(products.branchId, branchId))
       .orderBy(products.name)
-  },
-)
+  })
 
-export const getProductsWithStock = createServerFn({ method: 'GET' }).handler(
-  async (): Promise<ProductWithStock[]> => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
+export const getProductsWithStock = createServerFn({ method: 'GET' })
+  .inputValidator((branchId: string) => branchId)
+  .handler(async ({ data: branchId }): Promise<ProductWithStock[]> => {
+    await getAuthContext()
+
     const rows = await db
       .select({
         id: products.id,
@@ -289,9 +310,9 @@ export const getProductsWithStock = createServerFn({ method: 'GET' }).handler(
       .from(products)
       .leftJoin(
         inventory,
-        and(eq(inventory.productId, products.id), eq(inventory.hotelId, hotelId)),
+        and(eq(inventory.productId, products.id), eq(inventory.branchId, branchId)),
       )
-      .where(eq(products.hotelId, hotelId))
+      .where(eq(products.branchId, branchId))
       .orderBy(products.name)
 
     return rows.map((r) => ({
@@ -307,12 +328,12 @@ export const getProductsWithStock = createServerFn({ method: 'GET' }).handler(
       baseUnitsPerStock: r.baseUnitsPerStock ?? null,
       currentStock: parseFloat(r.currentStock ?? '0'),
     }))
-  },
-)
+  })
 
 export const createShoppingList = createServerFn({ method: 'POST' })
   .inputValidator(
     (data: {
+      branchId: string
       name: string
       assignedTo: string | null
       priority: string
@@ -334,10 +355,12 @@ export const createShoppingList = createServerFn({ method: 'POST' })
     }) => data,
   )
   .handler(async ({ data }) => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
-    const userId = process.env.MOCK_USER_ID
+    const ctx = await getAuthContext()
+    requireRole(ctx, 'owner', 'admin', 'chef')
 
-    const totalValue = data.items.reduce(
+    const { branchId, ...rest } = data
+
+    const totalValue = rest.items.reduce(
       (sum, item) => sum + item.requestedQuantity * item.pricePerStockUnit,
       0,
     )
@@ -345,27 +368,27 @@ export const createShoppingList = createServerFn({ method: 'POST' })
     const [list] = await db
       .insert(shoppingLists)
       .values({
-        hotelId,
-        name: data.name,
-        priority: data.priority,
-        createdBy: userId || undefined,
-        assignedTo: data.assignedTo ?? undefined,
-        status: data.status ?? 'pending',
+        branchId,
+        name: rest.name,
+        priority: rest.priority,
+        createdBy: ctx.userId,
+        assignedTo: rest.assignedTo ?? undefined,
+        status: rest.status ?? 'pending',
         totalValue: totalValue.toFixed(2),
-        guestCount: data.guestCount ?? null,
-        periodType: data.periodType ?? null,
-        periodStart: data.periodStart ? new Date(data.periodStart) : null,
-        periodEnd: data.periodEnd ? new Date(data.periodEnd) : null,
-        expectedGuestCount: data.expectedGuestCount ?? null,
-        expectedDailyOccupancy: data.expectedDailyOccupancy ?? null,
-        periodDays: data.periodDays ?? null,
-        mealsPerDayCount: data.mealsPerDayCount ?? 1,
+        guestCount: rest.guestCount ?? null,
+        periodType: rest.periodType ?? null,
+        periodStart: rest.periodStart ? new Date(rest.periodStart) : null,
+        periodEnd: rest.periodEnd ? new Date(rest.periodEnd) : null,
+        expectedGuestCount: rest.expectedGuestCount ?? null,
+        expectedDailyOccupancy: rest.expectedDailyOccupancy ?? null,
+        periodDays: rest.periodDays ?? null,
+        mealsPerDayCount: rest.mealsPerDayCount ?? 1,
       })
       .returning()
 
-    if (data.items.length > 0) {
+    if (rest.items.length > 0) {
       await db.insert(shoppingListItems).values(
-        data.items.map((item) => ({
+        rest.items.map((item) => ({
           shoppingListId: list.id,
           productId: item.productId,
           requestedQuantity: item.requestedQuantity.toString(),
@@ -382,6 +405,7 @@ export const createShoppingList = createServerFn({ method: 'POST' })
 export const updateShoppingList = createServerFn({ method: 'POST' })
   .inputValidator(
     (data: {
+      branchId: string
       id: string
       name: string
       assignedTo: string | null
@@ -401,12 +425,13 @@ export const updateShoppingList = createServerFn({ method: 'POST' })
     }) => data,
   )
   .handler(async ({ data }) => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
+    const ctx = await getAuthContext()
+    requireRole(ctx, 'owner', 'admin', 'chef')
 
     const [existing] = await db
       .select({ status: shoppingLists.status })
       .from(shoppingLists)
-      .where(and(eq(shoppingLists.id, data.id), eq(shoppingLists.hotelId, hotelId)))
+      .where(and(eq(shoppingLists.id, data.id), eq(shoppingLists.branchId, data.branchId)))
 
     if (!existing || existing.status !== 'draft') {
       throw new Error('Only draft lists can be edited')
@@ -432,7 +457,7 @@ export const updateShoppingList = createServerFn({ method: 'POST' })
         mealsPerDayCount: data.mealsPerDayCount ?? 1,
         updatedAt: new Date(),
       })
-      .where(and(eq(shoppingLists.id, data.id), eq(shoppingLists.hotelId, hotelId)))
+      .where(and(eq(shoppingLists.id, data.id), eq(shoppingLists.branchId, data.branchId)))
 
     await db.delete(shoppingListItems).where(eq(shoppingListItems.shoppingListId, data.id))
 
@@ -455,7 +480,7 @@ export const updateShoppingList = createServerFn({ method: 'POST' })
 // ─── Restock Suggestions ─────────────────────────────────────────────────────
 
 async function computeRestockSuggestions(
-  hotelId: string,
+  branchId: string,
   expectedGuestCount: number,
   periodDays: number,
   periodType?: string,
@@ -481,8 +506,8 @@ async function computeRestockSuggestions(
       onHand: inventory.quantity,
     })
     .from(products)
-    .leftJoin(inventory, and(eq(inventory.productId, products.id), eq(inventory.hotelId, hotelId)))
-    .where(eq(products.hotelId, hotelId))
+    .leftJoin(inventory, and(eq(inventory.productId, products.id), eq(inventory.branchId, branchId)))
+    .where(eq(products.branchId, branchId))
 
   // 2. ISSUE transactions in lookback window with guest counts.
   const txRows = await db
@@ -494,7 +519,7 @@ async function computeRestockSuggestions(
     .from(inventoryTransactions)
     .where(
       and(
-        eq(inventoryTransactions.hotelId, hotelId),
+        eq(inventoryTransactions.branchId, branchId),
         eq(inventoryTransactions.type, 'ISSUE'),
         isNotNull(inventoryTransactions.guestCount),
         gte(inventoryTransactions.createdAt, since),
@@ -506,7 +531,7 @@ async function computeRestockSuggestions(
   const openListIds = await db
     .select({ id: shoppingLists.id })
     .from(shoppingLists)
-    .where(and(eq(shoppingLists.hotelId, hotelId), inArray(shoppingLists.status, openStatuses)))
+    .where(and(eq(shoppingLists.branchId, branchId), inArray(shoppingLists.status, openStatuses)))
   const openIds = openListIds.map((r) => r.id)
 
   const onOrderMap = new Map<string, number>()
@@ -641,21 +666,24 @@ async function computeRestockSuggestions(
 export const getRestockSuggestions = createServerFn({ method: 'POST' })
   .inputValidator(
     (data: {
+      branchId: string
       expectedGuestCount: number
       periodDays: number
       periodType?: string
     }) => data,
   )
   .handler(async ({ data }): Promise<RestockSuggestion[]> => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
-    return computeRestockSuggestions(hotelId, data.expectedGuestCount, data.periodDays, data.periodType)
+    await getAuthContext()
+    return computeRestockSuggestions(data.branchId, data.expectedGuestCount, data.periodDays, data.periodType)
   })
 
 export const generateDraftFromDefaults = createServerFn({ method: 'POST' })
-  .inputValidator((name?: string) => name)
-  .handler(async ({ data: name }) => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
-    const userId = process.env.MOCK_USER_ID
+  .inputValidator((data: { branchId: string; name?: string }) => data)
+  .handler(async ({ data }) => {
+    const ctx = await getAuthContext()
+    requireRole(ctx, 'owner', 'admin', 'chef')
+
+    const { branchId, name } = data
 
     // Pull defaults from the most-recently completed list, or fall back to sensible values.
     const [lastList] = await db
@@ -667,7 +695,7 @@ export const generateDraftFromDefaults = createServerFn({ method: 'POST' })
         expectedGuestCount: shoppingLists.expectedGuestCount,
       })
       .from(shoppingLists)
-      .where(and(eq(shoppingLists.hotelId, hotelId), eq(shoppingLists.status, 'completed')))
+      .where(and(eq(shoppingLists.branchId, branchId), eq(shoppingLists.status, 'completed')))
       .orderBy(desc(shoppingLists.completedAt))
       .limit(1)
 
@@ -677,7 +705,7 @@ export const generateDraftFromDefaults = createServerFn({ method: 'POST' })
     const pType = lastList?.periodType ?? 'weekly'
     const expectedGuests = lastList?.expectedGuestCount ?? dailyOccupancy * pDays * meals
 
-    const suggestions = await computeRestockSuggestions(hotelId, expectedGuests, pDays, pType)
+    const suggestions = await computeRestockSuggestions(branchId, expectedGuests, pDays, pType)
     if (suggestions.length === 0) return null
 
     const totalValue = suggestions.reduce(
@@ -692,10 +720,10 @@ export const generateDraftFromDefaults = createServerFn({ method: 'POST' })
     const [list] = await db
       .insert(shoppingLists)
       .values({
-        hotelId,
+        branchId,
         name: listName,
         priority: 'normal',
-        createdBy: userId || undefined,
+        createdBy: ctx.userId,
         status: 'draft',
         totalValue: totalValue.toFixed(2),
         periodType: pType,
@@ -721,14 +749,14 @@ export const generateDraftFromDefaults = createServerFn({ method: 'POST' })
   })
 
 export const setProductBarcode = createServerFn({ method: 'POST' })
-  .inputValidator((data: { productId: string; barcode: string }) => data)
+  .inputValidator((data: { branchId: string; productId: string; barcode: string }) => data)
   .handler(async ({ data }) => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
+    await getAuthContext()
     try {
       await db
         .update(products)
         .set({ barcode: data.barcode })
-        .where(and(eq(products.id, data.productId), eq(products.hotelId, hotelId)))
+        .where(and(eq(products.id, data.productId), eq(products.branchId, data.branchId)))
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'code' in err && (err as { code: string }).code === '23505') {
         throw new Error('That barcode is already assigned to another product')

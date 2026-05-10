@@ -3,11 +3,14 @@ import { db, inventory, products, productSuppliers } from '@/db'
 import { eq, and, sql, ilike, inArray } from 'drizzle-orm'
 import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
 import { pricePerStockUnit, toStockQty, type ProductPricing } from '@/server/lib/pricing'
+import { getAuthContext, requireRole } from '@/server/auth/context'
+import { checkTierLimit } from '@/server/tier-check'
 import type { InventoryWithProduct, ProductSupplier } from '@/types'
 
-export const getPantryStats = createServerFn({ method: 'GET' }).handler(
-  async () => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
+export const getPantryStats = createServerFn({ method: 'GET' })
+  .inputValidator((branchId: string) => branchId)
+  .handler(async ({ data: branchId }) => {
+    await getAuthContext()
 
     const rows = await db
       .select({
@@ -21,12 +24,10 @@ export const getPantryStats = createServerFn({ method: 'GET' }).handler(
       })
       .from(inventory)
       .leftJoin(products, eq(inventory.productId, products.id))
-      .where(eq(inventory.hotelId, hotelId))
+      .where(eq(inventory.branchId, branchId))
 
     const totalSkus = rows.length
-    const outOfStockCount = rows.filter(
-      (r) => parseFloat(r.quantity ?? '0') === 0,
-    ).length
+    const outOfStockCount = rows.filter((r) => parseFloat(r.quantity ?? '0') === 0).length
     const lowStockCount = rows.filter(
       (r) =>
         parseFloat(r.quantity ?? '0') > 0 &&
@@ -46,12 +47,12 @@ export const getPantryStats = createServerFn({ method: 'GET' }).handler(
     }, 0)
 
     return { totalSkus, outOfStockCount, lowStockCount, inventoryValue }
-  },
-)
+  })
 
 export const getInventoryItems = createServerFn({ method: 'GET' })
   .inputValidator(
     (params: {
+      branchId: string
       page: number
       pageSize: number
       category: string
@@ -60,18 +61,18 @@ export const getInventoryItems = createServerFn({ method: 'GET' })
     }) => params,
   )
   .handler(async ({ data }) => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
-    const { page, pageSize, category, sortBy, q } = data
+    await getAuthContext()
+    const { branchId, page, pageSize, category, sortBy, q } = data
     const offset = (page - 1) * pageSize
 
-    const conditions = [eq(inventory.hotelId, hotelId)]
+    const conditions = [eq(inventory.branchId, branchId)]
     if (category && category !== 'all') conditions.push(eq(products.category, category))
     if (q) conditions.push(ilike(products.name, `%${q}%`))
 
     const allRows = await db
       .select({
         id: inventory.id,
-        hotelId: inventory.hotelId,
+        branchId: inventory.branchId,
         productId: inventory.productId,
         quantity: inventory.quantity,
         updatedAt: inventory.updatedAt,
@@ -101,7 +102,6 @@ export const getInventoryItems = createServerFn({ method: 'GET' })
 
     const paginated = sorted.slice(offset, offset + pageSize)
 
-    // Batch-fetch suppliers for paginated product IDs
     const productIds = paginated
       .map((r) => r.productId)
       .filter((id): id is string => !!id)
@@ -144,21 +144,22 @@ export const getInventoryItems = createServerFn({ method: 'GET' })
     }
   })
 
-export const getCategories = createServerFn({ method: 'GET' }).handler(
-  async () => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
+export const getCategories = createServerFn({ method: 'GET' })
+  .inputValidator((branchId: string) => branchId)
+  .handler(async ({ data: branchId }) => {
+    await getAuthContext()
     const rows = await db
       .selectDistinct({ category: products.category })
       .from(products)
-      .where(eq(products.hotelId, hotelId))
+      .where(eq(products.branchId, branchId))
       .orderBy(products.category)
     return rows.map((r) => r.category)
-  },
-)
+  })
 
-export const getProductCatalog = createServerFn({ method: 'GET' }).handler(
-  async () => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
+export const getProductCatalog = createServerFn({ method: 'GET' })
+  .inputValidator((branchId: string) => branchId)
+  .handler(async ({ data: branchId }) => {
+    await getAuthContext()
     return db
       .select({
         id: products.id,
@@ -173,23 +174,23 @@ export const getProductCatalog = createServerFn({ method: 'GET' }).handler(
         baseUnitsPerStock: products.baseUnitsPerStock,
       })
       .from(products)
-      .where(eq(products.hotelId, hotelId))
+      .where(eq(products.branchId, branchId))
       .orderBy(products.name)
-  },
-)
+  })
 
 export const addInventoryItem = createServerFn({ method: 'POST' })
   .inputValidator(
     (data: {
+      branchId: string
       productId: string
       quantity: number
       quantityUnit?: 'stock' | 'purchase'
     }) => data,
   )
   .handler(async ({ data }) => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
+    const ctx = await getAuthContext()
+    requireRole(ctx, 'owner', 'admin')
 
-    // Convert to stock units if the user entered in purchase units.
     let stockQty = data.quantity
     if (data.quantityUnit === 'purchase') {
       const [product] = await db
@@ -218,13 +219,13 @@ export const addInventoryItem = createServerFn({ method: 'POST' })
     await db
       .insert(inventory)
       .values({
-        hotelId,
+        branchId: data.branchId,
         productId: data.productId,
         quantity: stockQty.toString(),
         updatedAt: new Date(),
       })
       .onConflictDoUpdate({
-        target: [inventory.hotelId, inventory.productId],
+        target: [inventory.branchId, inventory.productId],
         set: {
           quantity: sql`inventory.quantity + ${stockQty}`,
           updatedAt: new Date(),
@@ -236,6 +237,7 @@ export const addInventoryItem = createServerFn({ method: 'POST' })
 export const updateInventoryItem = createServerFn({ method: 'POST' })
   .inputValidator(
     (data: {
+      branchId: string
       inventoryId: string
       quantity: number
       parPerGuest?: number | null
@@ -248,12 +250,13 @@ export const updateInventoryItem = createServerFn({ method: 'POST' })
     }) => data,
   )
   .handler(async ({ data }) => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
+    const ctx = await getAuthContext()
+    requireRole(ctx, 'owner', 'admin')
 
     await db
       .update(inventory)
       .set({ quantity: data.quantity.toString(), updatedAt: new Date() })
-      .where(and(eq(inventory.id, data.inventoryId), eq(inventory.hotelId, hotelId)))
+      .where(and(eq(inventory.id, data.inventoryId), eq(inventory.branchId, data.branchId)))
 
     const hasProductUpdate =
       data.parPerGuest !== undefined ||
@@ -283,19 +286,17 @@ export const updateInventoryItem = createServerFn({ method: 'POST' })
         if (data.purchasePackSize !== undefined)
           productUpdate.purchasePackSize =
             data.purchasePackSize != null ? data.purchasePackSize.toString() : null
-        if (data.baseUnit !== undefined)
-          productUpdate.baseUnit = data.baseUnit || null
+        if (data.baseUnit !== undefined) productUpdate.baseUnit = data.baseUnit || null
         if (data.baseUnitsPerStock !== undefined)
           productUpdate.baseUnitsPerStock =
             data.baseUnitsPerStock != null ? data.baseUnitsPerStock.toString() : null
-        if (data.barcode !== undefined)
-          productUpdate.barcode = data.barcode || null
+        if (data.barcode !== undefined) productUpdate.barcode = data.barcode || null
 
         try {
           await db
             .update(products)
             .set(productUpdate)
-            .where(and(eq(products.id, inv.productId), eq(products.hotelId, hotelId)))
+            .where(and(eq(products.id, inv.productId), eq(products.branchId, data.branchId)))
         } catch (err: unknown) {
           if (
             err &&
@@ -314,20 +315,20 @@ export const updateInventoryItem = createServerFn({ method: 'POST' })
   })
 
 export const deleteInventoryItem = createServerFn({ method: 'POST' })
-  .inputValidator((inventoryId: string) => inventoryId)
-  .handler(async ({ data: inventoryId }) => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
+  .inputValidator((data: { inventoryId: string; branchId: string }) => data)
+  .handler(async ({ data: { inventoryId, branchId } }) => {
+    const ctx = await getAuthContext()
+    requireRole(ctx, 'owner', 'admin')
 
     const [row] = await db
       .select({ productId: inventory.productId })
       .from(inventory)
-      .where(and(eq(inventory.id, inventoryId), eq(inventory.hotelId, hotelId)))
+      .where(and(eq(inventory.id, inventoryId), eq(inventory.branchId, branchId)))
 
     if (!row) throw new Error('Inventory item not found')
 
     await db.delete(inventory).where(eq(inventory.id, inventoryId))
 
-    // Delete the product if no other inventory row references it
     const remaining = await db
       .select({ id: inventory.id })
       .from(inventory)
@@ -344,6 +345,7 @@ export const deleteInventoryItem = createServerFn({ method: 'POST' })
 export const getProductSuppliers = createServerFn({ method: 'GET' })
   .inputValidator((productId: string) => productId)
   .handler(async ({ data: productId }) => {
+    await getAuthContext()
     return db
       .select()
       .from(productSuppliers)
@@ -362,6 +364,9 @@ export const createProductSupplier = createServerFn({ method: 'POST' })
     }) => data,
   )
   .handler(async ({ data }) => {
+    const ctx = await getAuthContext()
+    requireRole(ctx, 'owner', 'admin')
+
     const [supplier] = await db
       .insert(productSuppliers)
       .values({
@@ -378,6 +383,8 @@ export const createProductSupplier = createServerFn({ method: 'POST' })
 export const deleteProductSupplier = createServerFn({ method: 'POST' })
   .inputValidator((id: string) => id)
   .handler(async ({ data: id }) => {
+    const ctx = await getAuthContext()
+    requireRole(ctx, 'owner', 'admin')
     await db.delete(productSuppliers).where(eq(productSuppliers.id, id))
     return { success: true }
   })
@@ -385,6 +392,7 @@ export const deleteProductSupplier = createServerFn({ method: 'POST' })
 export const createProduct = createServerFn({ method: 'POST' })
   .inputValidator(
     (data: {
+      branchId: string
       name: string
       stockUnit: string
       category: string
@@ -408,7 +416,15 @@ export const createProduct = createServerFn({ method: 'POST' })
     }) => data,
   )
   .handler(async ({ data }) => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
+    const ctx = await getAuthContext()
+    requireRole(ctx, 'owner', 'admin')
+
+    const productLimits = await checkTierLimit(ctx.companyId, 'products')
+    if (!productLimits.allowed) {
+      throw new Error(
+        `Product limit reached (${productLimits.current}/${productLimits.max}). Upgrade your plan to add more products.`,
+      )
+    }
 
     if (data.purchaseUnit && (!data.purchasePackSize || data.purchasePackSize <= 0)) {
       return { success: false, error: 'purchasePackSize must be > 0 when purchaseUnit is set' }
@@ -423,7 +439,6 @@ export const createProduct = createServerFn({ method: 'POST' })
       baseUnitsPerStock: data.baseUnitsPerStock != null ? data.baseUnitsPerStock.toString() : null,
     }
 
-    // Convert initial quantity to stock units.
     const stockQty = toStockQty(
       data.initialQuantity,
       data.initialQuantityUnit ?? 'stock',
@@ -433,7 +448,7 @@ export const createProduct = createServerFn({ method: 'POST' })
     const [product] = await db
       .insert(products)
       .values({
-        hotelId,
+        branchId: data.branchId,
         name: data.name,
         stockUnit: data.stockUnit,
         category: data.category || 'General',
@@ -443,7 +458,8 @@ export const createProduct = createServerFn({ method: 'POST' })
         purchasePackSize: data.purchasePackSize != null ? data.purchasePackSize.toString() : null,
         purchasePrice: data.purchasePrice != null ? data.purchasePrice.toString() : null,
         baseUnit: data.baseUnit || null,
-        baseUnitsPerStock: data.baseUnitsPerStock != null ? data.baseUnitsPerStock.toString() : null,
+        baseUnitsPerStock:
+          data.baseUnitsPerStock != null ? data.baseUnitsPerStock.toString() : null,
         leadTimeDays: data.leadTimeDays ?? null,
         barcode: data.barcode || null,
       })
@@ -452,13 +468,13 @@ export const createProduct = createServerFn({ method: 'POST' })
     await db
       .insert(inventory)
       .values({
-        hotelId,
+        branchId: data.branchId,
         productId: product.id,
         quantity: stockQty.toString(),
         updatedAt: new Date(),
       })
       .onConflictDoUpdate({
-        target: [inventory.hotelId, inventory.productId],
+        target: [inventory.branchId, inventory.productId],
         set: {
           quantity: sql`inventory.quantity + ${stockQty}`,
           updatedAt: new Date(),
@@ -483,24 +499,36 @@ export const createProduct = createServerFn({ method: 'POST' })
 export const importInventoryFromCSV = createServerFn({ method: 'POST' })
   .inputValidator(
     (
-      rows: Array<{
-        name: string
-        stockUnit: string
-        category: string
-        initialQuantity: number
-        parPerGuest?: number | null
-        supplier?: string
-        purchasePrice?: number | null
-        purchaseUnit?: string | null
-        purchasePackSize?: number | null
-        baseUnit?: string | null
-        baseUnitsPerStock?: number | null
-        barcode?: string | null
-      }>,
-    ) => rows,
+      data: {
+        branchId: string
+        rows: Array<{
+          name: string
+          stockUnit: string
+          category: string
+          initialQuantity: number
+          parPerGuest?: number | null
+          supplier?: string
+          purchasePrice?: number | null
+          purchaseUnit?: string | null
+          purchasePackSize?: number | null
+          baseUnit?: string | null
+          baseUnitsPerStock?: number | null
+          barcode?: string | null
+        }>
+      },
+    ) => data,
   )
-  .handler(async ({ data: rows }) => {
-    const hotelId = process.env.MOCK_HOTEL_ID!
+  .handler(async ({ data: { branchId, rows } }) => {
+    const ctx = await getAuthContext()
+    requireRole(ctx, 'owner', 'admin')
+
+    const productLimits = await checkTierLimit(ctx.companyId, 'products')
+    if (!productLimits.allowed) {
+      throw new Error(
+        `Product limit reached (${productLimits.current}/${productLimits.max}). Upgrade your plan to import more products.`,
+      )
+    }
+
     let imported = 0
 
     for (const row of rows) {
@@ -509,7 +537,7 @@ export const importInventoryFromCSV = createServerFn({ method: 'POST' })
       const existing = await db
         .select({ id: products.id })
         .from(products)
-        .where(and(eq(products.hotelId, hotelId), eq(products.name, row.name)))
+        .where(and(eq(products.branchId, branchId), eq(products.name, row.name)))
         .then((r) => r[0])
 
       let productId: string
@@ -520,9 +548,11 @@ export const importInventoryFromCSV = createServerFn({ method: 'POST' })
         if (row.parPerGuest != null) updateSet.parPerGuest = row.parPerGuest.toString()
         if (row.purchasePrice != null) updateSet.purchasePrice = row.purchasePrice.toString()
         if (row.purchaseUnit) updateSet.purchaseUnit = row.purchaseUnit
-        if (row.purchasePackSize != null) updateSet.purchasePackSize = row.purchasePackSize.toString()
+        if (row.purchasePackSize != null)
+          updateSet.purchasePackSize = row.purchasePackSize.toString()
         if (row.baseUnit) updateSet.baseUnit = row.baseUnit
-        if (row.baseUnitsPerStock != null) updateSet.baseUnitsPerStock = row.baseUnitsPerStock.toString()
+        if (row.baseUnitsPerStock != null)
+          updateSet.baseUnitsPerStock = row.baseUnitsPerStock.toString()
         if (row.barcode) updateSet.barcode = row.barcode
         if (Object.keys(updateSet).length > 0) {
           await db.update(products).set(updateSet).where(eq(products.id, productId))
@@ -531,16 +561,18 @@ export const importInventoryFromCSV = createServerFn({ method: 'POST' })
         const [newProduct] = await db
           .insert(products)
           .values({
-            hotelId,
+            branchId,
             name: row.name,
             stockUnit: row.stockUnit,
             category: row.category || 'General',
             parPerGuest: row.parPerGuest != null ? row.parPerGuest.toString() : null,
             purchasePrice: row.purchasePrice != null ? row.purchasePrice.toString() : null,
             purchaseUnit: row.purchaseUnit || null,
-            purchasePackSize: row.purchasePackSize != null ? row.purchasePackSize.toString() : null,
+            purchasePackSize:
+              row.purchasePackSize != null ? row.purchasePackSize.toString() : null,
             baseUnit: row.baseUnit || null,
-            baseUnitsPerStock: row.baseUnitsPerStock != null ? row.baseUnitsPerStock.toString() : null,
+            baseUnitsPerStock:
+              row.baseUnitsPerStock != null ? row.baseUnitsPerStock.toString() : null,
             barcode: row.barcode || null,
           })
           .returning()
@@ -558,13 +590,13 @@ export const importInventoryFromCSV = createServerFn({ method: 'POST' })
       await db
         .insert(inventory)
         .values({
-          hotelId,
+          branchId,
           productId,
           quantity: (row.initialQuantity || 0).toString(),
           updatedAt: new Date(),
         })
         .onConflictDoUpdate({
-          target: [inventory.hotelId, inventory.productId],
+          target: [inventory.branchId, inventory.productId],
           set: {
             quantity: (row.initialQuantity || 0).toString(),
             updatedAt: new Date(),

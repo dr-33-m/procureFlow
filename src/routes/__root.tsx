@@ -1,14 +1,21 @@
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
+import {
+  HeadContent,
+  Scripts,
+  createRootRouteWithContext,
+  redirect,
+} from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { Toaster } from 'sonner'
 import { queryClient } from '@/lib/query-client'
+import { getSessionUser } from '@/server/auth/functions'
+import type { RouterContext } from '@/router'
 
 import appCss from '../styles.css?url'
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<RouterContext>()({
   head: () => ({
     meta: [
       { charSet: 'utf-8' },
@@ -17,6 +24,26 @@ export const Route = createRootRoute({
     ],
     links: [{ rel: 'stylesheet', href: appCss }],
   }),
+  beforeLoad: async ({ location }) => {
+    // Skip auth check for auth routes
+    if (location.pathname.startsWith('/auth/')) {
+      return { auth: null }
+    }
+
+    const result = await getSessionUser()
+
+    if (!result.authenticated) {
+      throw redirect({ to: '/auth/sign-in' })
+    }
+
+    if (result.needsOnboarding && !location.pathname.startsWith('/onboarding')) {
+      throw redirect({ to: '/onboarding/role-select' })
+    }
+
+    return {
+      auth: result.authenticated && !result.needsOnboarding ? result.user : null,
+    }
+  },
   shellComponent: RootDocument,
 })
 

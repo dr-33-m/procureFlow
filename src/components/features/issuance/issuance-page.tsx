@@ -7,6 +7,7 @@ import { IssuanceFilters } from './issuance-filters'
 import { IssuanceTable } from './issuance-table'
 import { DeductionCart } from './deduction-cart'
 import { useInventoryForIssuance, useRecentIssuances, useTodayIssuanceStats } from '@/hooks/use-issuance'
+import { usePermissions } from '@/hooks/use-permissions'
 import { formatQuantity, formatTime } from '@/lib/format'
 
 const routeApi = getRouteApi('/issuance/')
@@ -36,6 +37,7 @@ export function IssuancePage() {
     })
   }, [inventory, q, category])
 
+  const { canIssueStock } = usePermissions()
   const deltaSign = (todayStats?.deltaPercent ?? 0) >= 0 ? '+' : ''
 
   return (
@@ -112,10 +114,12 @@ export function IssuancePage() {
       {/* Table */}
       <IssuanceTable inventory={filteredInventory} />
 
-      {/* Floating Deduction Cart */}
-      <div className="fixed bottom-4 right-4 z-30">
-        <DeductionCart />
-      </div>
+      {/* Floating Deduction Cart — owner/admin only */}
+      {canIssueStock && (
+        <div className="fixed bottom-4 right-4 z-30">
+          <DeductionCart />
+        </div>
+      )}
     </AppLayout>
   )
 }

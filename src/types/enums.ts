@@ -1,4 +1,6 @@
-export type UserRole = 'manager' | 'runner'
+export type CompanyRole = 'owner' | 'admin'
+export type BranchRole = 'chef' | 'runner'
+export type UserRole = CompanyRole | BranchRole
 
 // Unit levels used for quantity entry and supplier pricing.
 // 'purchase' = case/box, 'stock' = the kitchen-issue unit, 'base' = ml/g/slice.
