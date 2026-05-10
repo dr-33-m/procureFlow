@@ -138,43 +138,45 @@ export function InviteDialog({ open, onOpenChange }: InviteDialogProps) {
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="role">Role</Label>
-              <Select
-                value={form.role}
-                onValueChange={(v) => setForm((f) => ({ ...f, role: v, branchId: '' }))}
-              >
-                <SelectTrigger id="role">
-                  <SelectValue placeholder="Select a role" />
-                </SelectTrigger>
-                <SelectContent>
-                  {isOwner && <SelectItem value="admin">Admin</SelectItem>}
-                  <SelectItem value="chef">Chef</SelectItem>
-                  <SelectItem value="runner">Runner</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {needsBranch && (
-              <div className="space-y-1.5">
-                <Label htmlFor="branch">Assign to branch</Label>
+            <div className="flex gap-3">
+              <div className="space-y-1.5 flex-1">
+                <Label htmlFor="role">Role</Label>
                 <Select
-                  value={form.branchId}
-                  onValueChange={(v) => setForm((f) => ({ ...f, branchId: v }))}
+                  value={form.role}
+                  onValueChange={(v) => setForm((f) => ({ ...f, role: v, branchId: '' }))}
                 >
-                  <SelectTrigger id="branch">
-                    <SelectValue placeholder="Select a branch" />
+                  <SelectTrigger id="role">
+                    <SelectValue placeholder="Select a role" />
                   </SelectTrigger>
                   <SelectContent>
-                    {branches.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>
-                        {b.name}
-                      </SelectItem>
-                    ))}
+                    {isOwner && <SelectItem value="admin">Admin</SelectItem>}
+                    <SelectItem value="chef">Chef</SelectItem>
+                    <SelectItem value="runner">Runner</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-            )}
+
+              {needsBranch && (
+                <div className="space-y-1.5 flex-1">
+                  <Label htmlFor="branch">Branch</Label>
+                  <Select
+                    value={form.branchId}
+                    onValueChange={(v) => setForm((f) => ({ ...f, branchId: v }))}
+                  >
+                    <SelectTrigger id="branch">
+                      <SelectValue placeholder="Select a branch" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {branches.map((b) => (
+                        <SelectItem key={b.id} value={b.id}>
+                          {b.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
 
             <div className="flex gap-2 pt-1">
               <Button type="button" variant="outline" className="flex-1" onClick={handleClose}>

@@ -1,4 +1,4 @@
-import { MoreHorizontal, Eye, Pencil, Trash2 } from 'lucide-react'
+import { MoreHorizontal, Eye, Pencil, Trash2, ShoppingCart } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Badge } from '@/components/ui/badge'
@@ -17,8 +17,9 @@ import type { ShoppingListWithDetails } from '@/types'
 export function buildShoppingListColumns(opts: {
   onDelete: (id: string) => void
   deletingId?: string
+  isRunner?: boolean
 }): ColumnDef<ShoppingListWithDetails>[] {
-  const { onDelete, deletingId } = opts
+  const { onDelete, deletingId, isRunner } = opts
   return [
   {
     key: 'name',
@@ -88,60 +89,72 @@ export function buildShoppingListColumns(opts: {
   {
     key: 'actions',
     header: '',
-    className: 'w-10',
-    render: (row) => (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <MoreHorizontal className="h-4 w-4" />
+    className: isRunner ? 'w-28' : 'w-10',
+    render: (row) =>
+      isRunner ? (
+        <Link
+          to="/shopping-lists/$id/run"
+          params={{ id: row.id }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Button size="sm" variant="outline" className="gap-1.5">
+            <ShoppingCart className="h-3.5 w-3.5" />
+            {row.status === 'shopping' ? 'Continue' : 'Start'}
           </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem asChild>
-            <Link
-              to="/shopping-lists/$id"
-              params={{ id: row.id }}
+        </Link>
+      ) : (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
               onClick={(e) => e.stopPropagation()}
-              className="flex items-center gap-2"
             >
-              <Eye className="h-4 w-4" />
-              View
-            </Link>
-          </DropdownMenuItem>
-          {row.status === 'draft' && (
-            <>
-              <DropdownMenuItem asChild>
-                <Link
-                  to="/shopping-lists/$id/edit"
-                  params={{ id: row.id }}
-                  onClick={(e) => e.stopPropagation()}
-                  className="flex items-center gap-2"
-                >
-                  <Pencil className="h-4 w-4" />
-                  Edit
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                variant="destructive"
-                disabled={deletingId === row.id}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onDelete(row.id)
-                }}
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem asChild>
+              <Link
+                to="/shopping-lists/$id"
+                params={{ id: row.id }}
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-2"
               >
-                <Trash2 className="h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    ),
+                <Eye className="h-4 w-4" />
+                View
+              </Link>
+            </DropdownMenuItem>
+            {row.status === 'draft' && (
+              <>
+                <DropdownMenuItem asChild>
+                  <Link
+                    to="/shopping-lists/$id/edit"
+                    params={{ id: row.id }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex items-center gap-2"
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Edit
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  variant="destructive"
+                  disabled={deletingId === row.id}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDelete(row.id)
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
   },
 ]}

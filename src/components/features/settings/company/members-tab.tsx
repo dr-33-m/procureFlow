@@ -85,17 +85,21 @@ export function MembersTab() {
   const branchMembers = members.filter((m) => m.level === 'branch')
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      <div className="grid grid-cols-2 gap-4 rounded-lg border bg-card p-4">
-        <TierUsageBar resource="users" label="Team members" />
-        <TierUsageBar resource="branches" label="Branches" />
-      </div>
-
-      <div className="flex justify-end">
-        <Button onClick={() => setInviteOpen(true)} className="gap-2">
-          <UserPlus className="h-4 w-4" />
-          Invite member
-        </Button>
+    <div className="space-y-6">
+      {/* Invite button right-aligned, usage card full width below */}
+      <div className="space-y-3">
+        {canManageMembers && (
+          <div className="flex justify-end">
+            <Button onClick={() => setInviteOpen(true)} className="gap-2">
+              <UserPlus className="h-4 w-4" />
+              Invite member
+            </Button>
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-4 rounded-lg border bg-card p-4">
+          <TierUsageBar resource="users" label="Team members" />
+          <TierUsageBar resource="branches" label="Branches" />
+        </div>
       </div>
 
       {isLoading ? (
@@ -104,49 +108,54 @@ export function MembersTab() {
         </div>
       ) : (
         <div className="space-y-6">
-          {companyMembers.length > 0 && (
-            <div className="rounded-lg border bg-card">
-              <div className="px-4 py-3 border-b">
-                <h3 className="text-sm font-semibold">Company members</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Owners and admins have access to all branches.
-                </p>
-              </div>
-              <div className="px-4 divide-y">
-                {companyMembers.map((member) => (
-                  <MemberRow
-                    key={member.id}
-                    member={member}
-                    canRemove={canRemoveMember(member)}
-                    onRemove={() =>
-                      removeMutation.mutate({ memberId: member.id, level: 'company' })
-                    }
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Company + branch member cards side by side */}
+          {(companyMembers.length > 0 || branchMembers.length > 0) && (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {companyMembers.length > 0 && (
+                <div className="rounded-lg border bg-card">
+                  <div className="px-4 py-3 border-b">
+                    <h3 className="text-sm font-semibold">Company members</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Owners and admins — access to all branches.
+                    </p>
+                  </div>
+                  <div className="px-4 divide-y">
+                    {companyMembers.map((member) => (
+                      <MemberRow
+                        key={member.id}
+                        member={member}
+                        canRemove={canRemoveMember(member)}
+                        onRemove={() =>
+                          removeMutation.mutate({ memberId: member.id, level: 'company' })
+                        }
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
 
-          {branchMembers.length > 0 && (
-            <div className="rounded-lg border bg-card">
-              <div className="px-4 py-3 border-b">
-                <h3 className="text-sm font-semibold">Branch members</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Chefs and runners are assigned to a specific branch.
-                </p>
-              </div>
-              <div className="px-4 divide-y">
-                {branchMembers.map((member) => (
-                  <MemberRow
-                    key={member.id}
-                    member={member}
-                    canRemove={canRemoveMember(member)}
-                    onRemove={() =>
-                      removeMutation.mutate({ memberId: member.id, level: 'branch' })
-                    }
-                  />
-                ))}
-              </div>
+              {branchMembers.length > 0 && (
+                <div className="rounded-lg border bg-card">
+                  <div className="px-4 py-3 border-b">
+                    <h3 className="text-sm font-semibold">Branch members</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Chefs and runners — assigned to a specific branch.
+                    </p>
+                  </div>
+                  <div className="px-4 divide-y">
+                    {branchMembers.map((member) => (
+                      <MemberRow
+                        key={member.id}
+                        member={member}
+                        canRemove={canRemoveMember(member)}
+                        onRemove={() =>
+                          removeMutation.mutate({ memberId: member.id, level: 'branch' })
+                        }
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

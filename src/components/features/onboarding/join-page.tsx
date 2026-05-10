@@ -7,13 +7,10 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
 import { redeemInvite } from '@/server/members'
-import { useBranchContext } from '@/stores/branch-context'
 import logoSvg from '@/assets/procureFlow.svg'
 
 export function JoinPage() {
   const navigate = useNavigate()
-  const setBranches = useBranchContext((s) => s.setBranches)
-  const setActiveBranch = useBranchContext((s) => s.setActiveBranch)
   const [loading, setLoading] = useState(false)
   const [token, setToken] = useState('')
 
@@ -24,11 +21,6 @@ export function JoinPage() {
     setLoading(true)
     try {
       const result = await redeemInvite({ data: { token: token.trim() } })
-
-      // Bootstrap branch context for the newly joined user
-      setBranches([{ id: result.defaultBranchId ?? '', name: result.companyName ?? '' }])
-      setActiveBranch(result.defaultBranchId ?? '')
-
       navigate({ to: '/' })
       toast.success(`Joined ${result.companyName}! Welcome.`)
     } catch (err) {

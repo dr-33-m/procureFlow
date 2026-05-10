@@ -23,7 +23,7 @@ export function PageHeader({
   className,
 }: PageHeaderProps) {
   return (
-    <div className={cn('mb-6 flex items-start justify-between', className)}>
+    <div className={cn('mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between', className)}>
       <div>
         {breadcrumb && breadcrumb.length > 0 && (
           <nav className="mb-2 flex items-center gap-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
@@ -46,7 +46,7 @@ export function PageHeader({
           <p className="mt-1 text-sm text-muted-foreground">{description}</p>
         )}
       </div>
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
+      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
   )
 }

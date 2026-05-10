@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router'
-import { Plus } from 'lucide-react'
+import { Plus, Sparkles, Loader2 } from 'lucide-react'
 import { AppLayout } from '@/components/layout/app-layout'
 import { PageHeader } from '@/components/ui/page-header'
 import { DataTable } from '@/components/ui/data-table'
@@ -14,7 +14,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { useShoppingLists, useDeleteShoppingList } from '@/hooks/use-shopping-lists'
+import { useShoppingLists, useDeleteShoppingList, useGenerateDraftFromDefaults } from '@/hooks/use-shopping-lists'
+import { usePermissions } from '@/hooks/use-permissions'
 import { buildShoppingListColumns } from './shopping-list-columns'
 
 const STATUS_FILTERS = ['all', 'draft', 'pending', 'shopping', 'in_review', 'on_hold', 'completed'] as const
@@ -37,7 +38,18 @@ export function ShoppingListsPage() {
   const navigate = useNavigate({ from: '/shopping-lists/' })
   const { data: lists = [] } = useShoppingLists()
   const deleteMutation = useDeleteShoppingList()
+  const { canCreateShoppingList } = usePermissions()
+  const isRunner = !canCreateShoppingList
+  const generateMutation = useGenerateDraftFromDefaults()
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+
+  const handleGenerate = () => {
+    generateMutation.mutate(undefined, {
+      onSuccess: (list) => {
+        if (list) navigate({ to: '/shopping-lists/$id', params: { id: list.id } })
+      },
+    })
+  }
 
   const pendingDeleteList = lists.find((l) => l.id === pendingDeleteId)
 
@@ -54,12 +66,29 @@ export function ShoppingListsPage() {
         title="Shopping Lists"
         breadcrumb={[{ label: 'Procurement' }, { label: 'Lists' }]}
         actions={
-          <Link to="/shopping-lists/create">
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Create New List
-            </Button>
-          </Link>
+          canCreateShoppingList ? (
+            <>
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={handleGenerate}
+                disabled={generateMutation.isPending}
+              >
+                {generateMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                <span className="hidden sm:inline">Generate This Week's List</span>
+              </Button>
+              <Link to="/shopping-lists/create">
+                <Button className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Create New List
+                </Button>
+              </Link>
+            </>
+          ) : undefined
         }
       />
 
@@ -88,14 +117,20 @@ export function ShoppingListsPage() {
         {filtered.length === 0 ? (
           <EmptyState
             title="No lists found"
-            description="Create your first shopping list to get started."
+            description={
+              isRunner
+                ? 'No shopping lists have been assigned to you yet.'
+                : 'Create your first shopping list to get started.'
+            }
             action={
-              <Link to="/shopping-lists/create">
-                <Button className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Create New List
-                </Button>
-              </Link>
+              canCreateShoppingList ? (
+                <Link to="/shopping-lists/create">
+                  <Button className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Create New List
+                  </Button>
+                </Link>
+              ) : undefined
             }
           />
         ) : (
@@ -104,6 +139,7 @@ export function ShoppingListsPage() {
             columns={buildShoppingListColumns({
               onDelete: (id) => setPendingDeleteId(id),
               deletingId: deleteMutation.isPending ? (deleteMutation.variables as string) : undefined,
+              isRunner,
             })}
           />
         )}

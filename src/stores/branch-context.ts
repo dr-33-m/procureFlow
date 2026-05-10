@@ -27,10 +27,10 @@ export const useBranchContext = create<BranchContextState>()(
       },
       setBranches: (branches: BranchOption[]) => {
         set((state) => {
-          // If current active branch is still in the new list, keep it
-          const stillValid = branches.some((b) => b.id === state.activeBranchId)
-          if (stillValid) {
-            return { branches }
+          // If current active branch is still in the new list, keep selection but sync the name
+          const validBranch = branches.find((b) => b.id === state.activeBranchId)
+          if (validBranch) {
+            return { branches, activeBranchName: validBranch.name }
           }
           // Otherwise default to the first branch
           const first = branches[0]

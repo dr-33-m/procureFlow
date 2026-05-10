@@ -10,6 +10,7 @@ import {
 } from '@/db'
 import { eq, and, inArray } from 'drizzle-orm'
 import { getAuthContext, requireRole } from '@/server/auth/context'
+import { getAppSession } from '@/server/auth/session'
 import { checkTierLimit } from '@/server/tier-check'
 import type { MemberWithDetails, UserRole } from '@/types'
 
@@ -217,6 +218,15 @@ export const redeemInvite = createServerFn({ method: 'POST' })
         .where(eq(branches.companyId, invite.companyId))
         .limit(1)
         .then((r) => r[0]?.id ?? ''))
+
+    // Update session so the root route guard sees the new company immediately
+    const session = await getAppSession()
+    await session.update({
+      ...session.data,
+      userRole: invite.role as UserRole,
+      companyId: invite.companyId,
+      defaultBranchId: defaultBranchId ?? '',
+    })
 
     return {
       companyId: invite.companyId,

@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useBlocker } from '@tanstack/react-router'
 import { AppSidebar } from './sidebar'
 import { Header } from './header'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
@@ -10,6 +11,24 @@ import { useAuth } from '@/hooks/use-auth'
 
 interface AppLayoutProps {
   children: React.ReactNode
+}
+
+function RunnerNavGuard() {
+  const auth = useAuth()
+
+  useBlocker({
+    shouldBlockFn: ({ next }) => {
+      if (auth?.userRole !== 'runner') return false
+      const { pathname } = next
+      return (
+        !pathname.startsWith('/shopping-lists') &&
+        !pathname.startsWith('/settings/profile')
+      )
+    },
+    enableBeforeUnload: false,
+  })
+
+  return null
 }
 
 function BranchContextInitializer() {
@@ -53,6 +72,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   return (
     <TooltipProvider>
       <SidebarProvider>
+        <RunnerNavGuard />
         <BranchContextInitializer />
         <AppSidebar />
         <SidebarInset>

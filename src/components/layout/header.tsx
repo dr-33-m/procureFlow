@@ -39,7 +39,7 @@ export function Header() {
                 className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium hover:bg-muted transition-colors"
               >
                 <MapPin className="h-4 w-4 text-muted-foreground" />
-                <span className="hidden sm:inline">{activeBranchName || 'Select branch'}</span>
+                <span className="inline">{activeBranchName || 'Select branch'}</span>
                 <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground" />
               </button>
             </DropdownMenuTrigger>
@@ -63,7 +63,7 @@ export function Header() {
           activeBranchName ? (
             <div className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-muted-foreground">
               <MapPin className="h-4 w-4" />
-              <span className="hidden sm:inline">{activeBranchName}</span>
+              <span className="inline">{activeBranchName}</span>
             </div>
           ) : null
         )}

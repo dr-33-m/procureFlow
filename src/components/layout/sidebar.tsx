@@ -49,7 +49,7 @@ type NavItem = {
 }
 
 const navItems: NavItem[] = [
-  { label: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['owner', 'admin', 'chef'] },
+  { label: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['owner', 'admin'] },
   { label: 'Shopping Lists', href: '/shopping-lists', icon: ShoppingCart },
   { label: 'Receiving', href: '/receiving', icon: ClipboardList, roles: ['owner', 'admin'] },
   { label: 'Pantry', href: '/pantry', icon: Package, roles: ['owner', 'admin', 'chef'] },

@@ -10,7 +10,7 @@ export function usePermissions() {
   return {
     role,
     // Navigation visibility
-    canViewDashboard: hasRole('owner', 'admin', 'chef'),
+    canViewDashboard: hasRole('owner', 'admin'),
     canViewPantry: hasRole('owner', 'admin', 'chef'),
     canViewIssuance: hasRole('owner', 'admin', 'chef'),
     canViewReceiving: hasRole('owner', 'admin'),
