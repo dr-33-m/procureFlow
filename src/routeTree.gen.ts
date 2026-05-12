@@ -23,6 +23,7 @@ import { Route as OnboardingRoleSelectRouteImport } from './routes/onboarding/ro
 import { Route as OnboardingJoinRouteImport } from './routes/onboarding/join'
 import { Route as OnboardingCreateCompanyRouteImport } from './routes/onboarding/create-company'
 import { Route as IssuanceActivityRouteImport } from './routes/issuance/activity'
+import { Route as ApiAiChatRouteImport } from './routes/api/ai-chat'
 import { Route as ShoppingListsIdIndexRouteImport } from './routes/shopping-lists/$id/index'
 import { Route as AuthSignOutIndexRouteImport } from './routes/auth/sign-out/index'
 import { Route as AuthSignInIndexRouteImport } from './routes/auth/sign-in/index'
@@ -101,6 +102,11 @@ const IssuanceActivityRoute = IssuanceActivityRouteImport.update({
   path: '/issuance/activity',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAiChatRoute = ApiAiChatRouteImport.update({
+  id: '/api/ai-chat',
+  path: '/api/ai-chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ShoppingListsIdIndexRoute = ShoppingListsIdIndexRouteImport.update({
   id: '/shopping-lists/$id/',
   path: '/shopping-lists/$id/',
@@ -139,6 +145,7 @@ const AuthSignInCallbackRoute = AuthSignInCallbackRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/ai-chat': typeof ApiAiChatRoute
   '/issuance/activity': typeof IssuanceActivityRoute
   '/onboarding/create-company': typeof OnboardingCreateCompanyRoute
   '/onboarding/join': typeof OnboardingJoinRoute
@@ -162,6 +169,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/ai-chat': typeof ApiAiChatRoute
   '/issuance/activity': typeof IssuanceActivityRoute
   '/onboarding/create-company': typeof OnboardingCreateCompanyRoute
   '/onboarding/join': typeof OnboardingJoinRoute
@@ -186,6 +194,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/ai-chat': typeof ApiAiChatRoute
   '/issuance/activity': typeof IssuanceActivityRoute
   '/onboarding/create-company': typeof OnboardingCreateCompanyRoute
   '/onboarding/join': typeof OnboardingJoinRoute
@@ -211,6 +220,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/api/ai-chat'
     | '/issuance/activity'
     | '/onboarding/create-company'
     | '/onboarding/join'
@@ -234,6 +244,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/api/ai-chat'
     | '/issuance/activity'
     | '/onboarding/create-company'
     | '/onboarding/join'
@@ -257,6 +268,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/api/ai-chat'
     | '/issuance/activity'
     | '/onboarding/create-company'
     | '/onboarding/join'
@@ -281,6 +293,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiAiChatRoute: typeof ApiAiChatRoute
   IssuanceActivityRoute: typeof IssuanceActivityRoute
   OnboardingCreateCompanyRoute: typeof OnboardingCreateCompanyRoute
   OnboardingJoinRoute: typeof OnboardingJoinRoute
@@ -403,6 +416,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IssuanceActivityRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/ai-chat': {
+      id: '/api/ai-chat'
+      path: '/api/ai-chat'
+      fullPath: '/api/ai-chat'
+      preLoaderRoute: typeof ApiAiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/shopping-lists/$id/': {
       id: '/shopping-lists/$id/'
       path: '/shopping-lists/$id'
@@ -457,6 +477,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiAiChatRoute: ApiAiChatRoute,
   IssuanceActivityRoute: IssuanceActivityRoute,
   OnboardingCreateCompanyRoute: OnboardingCreateCompanyRoute,
   OnboardingJoinRoute: OnboardingJoinRoute,

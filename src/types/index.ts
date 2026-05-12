@@ -213,3 +213,43 @@ export type MemberWithDetails = {
   branchName: string | null
   createdAt: Date
 }
+
+// ─── AI Shopping types ──────────────────────────────────────────────────────
+
+export type AIChatMessage = {
+  role: 'user' | 'assistant' | 'system'
+  content: string
+}
+
+export type AIToolCallInfo = {
+  name: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  input: Record<string, any> | null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  output: Record<string, any> | null
+}
+
+export type AISuggestedItem = {
+  productId: string
+  productName: string
+  category: string
+  quantity: number
+  stockUnit: string
+  purchaseUnit?: string
+  purchasePackSize?: number
+  pricePerStockUnit: number
+  reason: string
+  urgency: 'critical' | 'soon' | 'ok'
+}
+
+export type AIShoppingListSuggestion = {
+  summary: string
+  items: AISuggestedItem[]
+  totalEstimatedCost: number
+}
+
+export type AIChatResponse = {
+  message: AIChatMessage
+  toolCalls: AIToolCallInfo[]
+  suggestion: AIShoppingListSuggestion | null
+}

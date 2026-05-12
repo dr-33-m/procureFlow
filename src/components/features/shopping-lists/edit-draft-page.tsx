@@ -11,6 +11,7 @@ import {
   Clock,
   CheckCircle2,
   ArrowLeft,
+  Bot,
 } from 'lucide-react'
 import { AppLayout } from '@/components/layout/app-layout'
 import { PageHeader } from '@/components/ui/page-header'
@@ -31,6 +32,7 @@ import {
   useUpdateShoppingList,
   useRestockSuggestions,
 } from '@/hooks/use-shopping-lists'
+import { AIAssistantDrawer } from './ai-assistant-drawer'
 import { formatCurrencyFull, formatQuantity } from '@/lib/format'
 import { pricePerStockUnit } from '@/server/lib/pricing'
 import type { ProductWithStock, RestockSuggestion } from '@/types'
@@ -94,6 +96,7 @@ export function EditDraftPage() {
   const [mealsPerDay, setMealsPerDay] = useState<number>(1)
   const [items, setItems] = useState<LineItem[]>([])
   const [searchQuery, setSearchQuery] = useState('')
+  const [aiDrawerOpen, setAiDrawerOpen] = useState(false)
 
   // Pre-fill from existing list once loaded
   if (list && !initialized) {
@@ -383,14 +386,24 @@ export function EditDraftPage() {
                 ? `Suggest items using consumption history for ${periodDays} days / ${expectedGuestCount?.toLocaleString()} guest-meals`
                 : 'Fill in the forecast period above to generate suggestions'}
             </p>
-            <Button
-              className="shrink-0 gap-2"
-              onClick={handleSuggest}
-              disabled={!canSuggest || suggestMutation.isPending}
-            >
-              {suggestMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {suggestMutation.isPending ? 'Generating…' : 'Suggest Items'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                className="shrink-0 gap-2"
+                onClick={() => setAiDrawerOpen(true)}
+              >
+                <Bot className="h-4 w-4" />
+                AI Assistant
+              </Button>
+              <Button
+                className="shrink-0 gap-2"
+                onClick={handleSuggest}
+                disabled={!canSuggest || suggestMutation.isPending}
+              >
+                {suggestMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {suggestMutation.isPending ? 'Generating…' : 'Suggest Items'}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -590,6 +603,22 @@ export function EditDraftPage() {
           </div>
         </div>
       </div>
+      <AIAssistantDrawer
+        open={aiDrawerOpen}
+        onOpenChange={setAiDrawerOpen}
+        editorContext={{
+          existingItems: items.map((i) => ({
+            productId: i.productId,
+            productName: i.productName,
+            quantity: i.quantity,
+          })),
+          periodType,
+          periodDays,
+          expectedGuestCount: expectedGuestCount ?? undefined,
+          mealsPerDay,
+          avgDailyGuests: avgDailyGuests ? Number(avgDailyGuests) : undefined,
+        }}
+      />
     </AppLayout>
   )
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { Trash2, Plus, ChevronRight, Users, Sparkles, Loader2, AlertTriangle, Clock, CheckCircle2 } from 'lucide-react'
+import { Trash2, Plus, ChevronRight, Users, Sparkles, Loader2, AlertTriangle, Clock, CheckCircle2, Bot } from 'lucide-react'
 import { AppLayout } from '@/components/layout/app-layout'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
@@ -19,6 +19,7 @@ import {
   useCreateShoppingList,
   useRestockSuggestions,
 } from '@/hooks/use-shopping-lists'
+import { AIAssistantDrawer } from './ai-assistant-drawer'
 import { formatCurrencyFull, formatQuantity } from '@/lib/format'
 import { pricePerStockUnit } from '@/server/lib/pricing'
 import type { ProductWithStock, RestockSuggestion } from '@/types'
@@ -82,6 +83,7 @@ export function CreateListPage() {
 
   const [items, setItems] = useState<LineItem[]>([])
   const [searchQuery, setSearchQuery] = useState('')
+  const [aiDrawerOpen, setAiDrawerOpen] = useState(false)
 
   const periodDays = periodType === 'event' ? (Number(customPeriodDays) || 7) : PERIOD_DAYS[periodType]
   const expectedGuestCount =
@@ -366,18 +368,28 @@ export function CreateListPage() {
                 ? `Suggest items using consumption history and par levels for ${periodDays} days / ${expectedGuestCount?.toLocaleString()} guest-meals`
                 : 'Fill in the forecast period above to generate suggestions'}
             </p>
-            <Button
-              className="shrink-0 gap-2"
-              onClick={handleSuggest}
-              disabled={!canSuggest || suggestMutation.isPending}
-            >
-              {suggestMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Sparkles className="h-4 w-4" />
-              )}
-              {suggestMutation.isPending ? 'Generating…' : 'Suggest Items'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                className="shrink-0 gap-2"
+                onClick={() => setAiDrawerOpen(true)}
+              >
+                <Bot className="h-4 w-4" />
+                AI Assistant
+              </Button>
+              <Button
+                className="shrink-0 gap-2"
+                onClick={handleSuggest}
+                disabled={!canSuggest || suggestMutation.isPending}
+              >
+                {suggestMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                {suggestMutation.isPending ? 'Generating…' : 'Suggest Items'}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -611,6 +623,22 @@ export function CreateListPage() {
           </div>
         </div>
       </div>
+      <AIAssistantDrawer
+        open={aiDrawerOpen}
+        onOpenChange={setAiDrawerOpen}
+        editorContext={{
+          existingItems: items.map((i) => ({
+            productId: i.productId,
+            productName: i.productName,
+            quantity: i.quantity,
+          })),
+          periodType,
+          periodDays,
+          expectedGuestCount: expectedGuestCount ?? undefined,
+          mealsPerDay,
+          avgDailyGuests: avgDailyGuests ? Number(avgDailyGuests) : undefined,
+        }}
+      />
     </AppLayout>
   )
 }
