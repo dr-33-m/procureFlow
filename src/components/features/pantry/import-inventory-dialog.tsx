@@ -22,6 +22,9 @@ interface CSVRow {
   purchasePrice?: number | null      // price per purchase unit
   baseUnit?: string | null           // e.g. "ml", "g", "slice"
   baseUnitsPerStock?: number | null  // base units per stock unit, e.g. 750 (ml per bottle)
+  servingUnit?: string | null        // e.g. "glass", "tbsp", "portion"
+  servingSize?: number | null        // base units per serving, e.g. 250 (ml per glass)
+  parPerGuestUnit?: 'stock' | 'base' | 'serving'
   supplier?: string
   barcode?: string | null
   _error?: string
@@ -50,6 +53,9 @@ export function ImportInventoryDialog({ open, onClose }: ImportInventoryDialogPr
       'purchasePrice',
       'baseUnit',
       'baseUnitsPerStock',
+      'servingUnit',
+      'servingSize',
+      'parPerGuestUnit',
       'supplier',
       'barcode',
     ].join(',')
@@ -57,13 +63,13 @@ export function ImportInventoryDialog({ open, onClose }: ImportInventoryDialogPr
     // Example rows covering common packaging scenarios
     const examples = [
       // Simple item: bottles purchased individually
-      'Olive Oil,bottle,Oils & Fats,10,0.05,,,18.50,,,Prime Logistics Co.,6001234567890',
-      // Case-packed item: 12 bottles per case at $120/case
-      'Red Wine,bottle,Beverages,24,0.1,case,12,120.00,ml,750,Cape Wines,',
+      'Olive Oil,bottle,Oils & Fats,10,0.05,,,18.50,,,,,,Prime Logistics Co.,6001234567890',
+      // Case-packed item with serving: 12 bottles per case, 1 glass = 250ml per guest
+      'Red Wine,bottle,Beverages,24,1,case,12,120.00,ml,750,glass,250,serving,Cape Wines,',
       // Weight item: purchased per kg, portioned in grams
-      'Chicken Breast,kg,Proteins,15,0.2,,,85.00,g,1000,Farm Fresh,',
+      'Chicken Breast,kg,Proteins,15,0.2,,,85.00,g,1000,,,,Farm Fresh,',
       // Bag of rice: 25 kg bags, portioned per kg
-      'Rice,kg,Grains,50,0.1,bag,25,75.00,,,Grain Masters,6009876543210',
+      'Rice,kg,Grains,50,0.1,bag,25,75.00,,,,,stock,Grain Masters,6009876543210',
     ].join('\n')
 
     const csv = `${headers}\n${examples}\n`
@@ -111,6 +117,19 @@ export function ImportInventoryDialog({ open, onClose }: ImportInventoryDialogPr
             purchasePrice,
             baseUnit: r.baseUnit?.trim() || null,
             baseUnitsPerStock,
+            servingUnit: r.servingUnit?.trim() || null,
+            servingSize: r.servingSize ? parseFloat(r.servingSize) : null,
+            parPerGuestUnit: (() => {
+              const raw = r.parPerGuestUnit?.trim().toLowerCase() ?? ''
+              if (['stock', 'base', 'serving'].includes(raw)) return raw as 'stock' | 'base' | 'serving'
+              const sUnit = r.servingUnit?.trim().toLowerCase()
+              const bUnit = r.baseUnit?.trim().toLowerCase()
+              const stUnit = r.stockUnit?.trim().toLowerCase()
+              if (sUnit && raw === sUnit && sUnit !== bUnit) return 'serving' as const
+              if (bUnit && raw === bUnit) return 'base' as const
+              if (stUnit && raw === stUnit) return 'stock' as const
+              return undefined
+            })(),
             supplier: r.supplier?.trim() || undefined,
             barcode: r.barcode?.trim() || null,
             _error: errors.length > 0 ? errors.join(', ') : undefined,
@@ -141,7 +160,7 @@ export function ImportInventoryDialog({ open, onClose }: ImportInventoryDialogPr
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-6xl! w-[95vw]">
         <DialogHeader>
           <DialogTitle>Import Inventory from CSV</DialogTitle>
         </DialogHeader>
@@ -212,6 +231,9 @@ export function ImportInventoryDialog({ open, onClose }: ImportInventoryDialogPr
                       <th className="px-3 py-2 text-left text-xs font-semibold">Buy Price</th>
                       <th className="px-3 py-2 text-left text-xs font-semibold">Base Unit</th>
                       <th className="px-3 py-2 text-left text-xs font-semibold">Base/Stock</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold">Serving</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold">Serv. Size</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold">Par Unit</th>
                       <th className="px-3 py-2 text-left text-xs font-semibold">Supplier</th>
                       <th className="px-3 py-2 text-left text-xs font-semibold">Barcode</th>
                     </tr>
@@ -235,6 +257,9 @@ export function ImportInventoryDialog({ open, onClose }: ImportInventoryDialogPr
                         </td>
                         <td className="px-3 py-1.5 text-muted-foreground">{row.baseUnit ?? '—'}</td>
                         <td className="px-3 py-1.5 text-muted-foreground">{row.baseUnitsPerStock ?? '—'}</td>
+                        <td className="px-3 py-1.5 text-muted-foreground">{row.servingUnit ?? '—'}</td>
+                        <td className="px-3 py-1.5 text-muted-foreground">{row.servingSize ?? '—'}</td>
+                        <td className="px-3 py-1.5 text-muted-foreground">{row.parPerGuestUnit ?? '—'}</td>
                         <td className="px-3 py-1.5 text-muted-foreground">{row.supplier ?? '—'}</td>
                         <td className="px-3 py-1.5 text-muted-foreground">{row.barcode ?? '—'}</td>
                       </tr>

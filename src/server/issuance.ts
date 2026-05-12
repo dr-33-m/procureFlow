@@ -249,6 +249,8 @@ export const issueStock = createServerFn({ method: 'POST' })
           purchasePrice: r.purchasePrice,
           baseUnit: r.baseUnit,
           baseUnitsPerStock: r.baseUnitsPerStock,
+          servingUnit: null,
+          servingSize: null,
         })
       }
     }

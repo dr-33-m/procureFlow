@@ -12,3 +12,18 @@ export function getCurrentShift(): string {
   if (hour < 16) return 'Day Shift'
   return 'Evening Shift'
 }
+
+// Common serving presets keyed by serving name.
+// When the user types a serving name and the product's baseUnit matches,
+// the UI auto-fills servingSize for convenience.
+export const SERVING_PRESETS: Record<string, { baseUnit: string; size: number }[]> = {
+  glass:      [{ baseUnit: 'ml', size: 250 }],
+  cup:        [{ baseUnit: 'ml', size: 250 }],
+  tablespoon: [{ baseUnit: 'ml', size: 15 }],
+  tbsp:       [{ baseUnit: 'ml', size: 15 }],
+  teaspoon:   [{ baseUnit: 'ml', size: 5 }],
+  tsp:        [{ baseUnit: 'ml', size: 5 }],
+  portion:    [{ baseUnit: 'g', size: 200 }],
+  scoop:      [{ baseUnit: 'g', size: 30 }],
+  slice:      [{ baseUnit: 'g', size: 30 }],
+}

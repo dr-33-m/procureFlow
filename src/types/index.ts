@@ -45,6 +45,8 @@ export interface ProductPackagingFields {
   purchasePrice: string | null
   baseUnit: string | null
   baseUnitsPerStock: string | null
+  servingUnit: string | null
+  servingSize: string | null
 }
 
 // ─── Compound types ──────────────────────────────────────────────────────────
@@ -105,6 +107,7 @@ export type InventoryWithProduct = Inventory & {
   productCategory: string
   productSku: string | null
   parPerGuest: string | null
+  parPerGuestUnit: string | null
   suppliers: ProductSupplier[]
 } & ProductPackagingFields
 

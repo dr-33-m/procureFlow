@@ -98,13 +98,13 @@ async function main() {
     { name: 'Mixed Salad Greens', stockUnit: 'kg', category: 'Produce', barcode: 'PRD-002', parPerGuest: '0.08', purchasePrice: '6.50', supplierName: 'FreshFarm Supplies' },
     { name: 'Fresh Lemons', stockUnit: 'each', category: 'Produce', barcode: 'PRD-003', parPerGuest: '0.05', purchaseUnit: 'box', purchasePackSize: '50', purchasePrice: '28.00', supplierName: 'FreshFarm Supplies' },
     // Dairy — bottle/case with base units
-    { name: 'Heavy Whipping Cream', stockUnit: 'litre', category: 'Dairy', barcode: 'DAI-001', parPerGuest: '0.12', purchasePrice: '4.20', baseUnit: 'ml', baseUnitsPerStock: '1000', supplierName: 'Grand Dairy Co.' },
+    { name: 'Heavy Whipping Cream', stockUnit: 'litre', category: 'Dairy', barcode: 'DAI-001', parPerGuest: '0.5', parPerGuestUnit: 'serving', purchasePrice: '4.20', baseUnit: 'ml', baseUnitsPerStock: '1000', servingUnit: 'cup', servingSize: '250', supplierName: 'Grand Dairy Co.' },
     { name: 'Grade A Large Eggs (12ct)', stockUnit: 'dozen', category: 'Dairy', barcode: 'DA-110-C', parPerGuest: '0.50', purchaseUnit: 'case', purchasePackSize: '4', purchasePrice: '34.00', supplierName: 'Grand Dairy Co.' },
-    { name: 'Whole Grade-A Milk', stockUnit: 'bottle', category: 'Dairy', barcode: 'MK-33201', parPerGuest: '0.30', purchaseUnit: 'case', purchasePackSize: '20', purchasePrice: '15.00', baseUnit: 'ml', baseUnitsPerStock: '500', supplierName: 'Grand Dairy Co.' },
+    { name: 'Whole Grade-A Milk', stockUnit: 'bottle', category: 'Dairy', barcode: 'MK-33201', parPerGuest: '1', parPerGuestUnit: 'serving', purchaseUnit: 'case', purchasePackSize: '20', purchasePrice: '15.00', baseUnit: 'ml', baseUnitsPerStock: '500', servingUnit: 'glass', servingSize: '250', supplierName: 'Grand Dairy Co.' },
     { name: 'Unsalted Butter', stockUnit: 'kg', category: 'Dairy', barcode: 'DAI-004', parPerGuest: '0.08', purchasePrice: '12.00', supplierName: 'Grand Dairy Co.' },
     // Dry Goods — bag with base unit
     { name: 'Arborio Rice', stockUnit: 'kg', category: 'Dry Goods', barcode: 'DRY-001', parPerGuest: '0.15', purchasePrice: '3.80', supplierName: 'Pantry Direct' },
-    { name: 'Extra Virgin Olive Oil', stockUnit: 'gallon', category: 'Dry Goods', barcode: 'DRY-002', parPerGuest: '0.02', purchasePrice: '32.00', baseUnit: 'ml', baseUnitsPerStock: '3785', supplierName: 'Pantry Direct' },
+    { name: 'Extra Virgin Olive Oil', stockUnit: 'gallon', category: 'Dry Goods', barcode: 'DRY-002', parPerGuest: '2', parPerGuestUnit: 'serving', purchasePrice: '32.00', baseUnit: 'ml', baseUnitsPerStock: '3785', servingUnit: 'tbsp', servingSize: '15', supplierName: 'Pantry Direct' },
     { name: 'All-Purpose Flour 50lb Bag', stockUnit: 'bag', category: 'Dry Goods', barcode: 'BA-004-F', parPerGuest: '0.10', purchasePrice: '38.00', baseUnit: 'lb', baseUnitsPerStock: '50', supplierName: 'Pantry Direct' },
     { name: 'Fine Granulated Sugar', stockUnit: 'kg', category: 'Dry Goods', barcode: 'SG-10029', parPerGuest: '0.06', purchasePrice: '2.40', supplierName: 'Pantry Direct' },
     // Beverages
@@ -127,6 +127,9 @@ async function main() {
       purchasePrice: p.purchasePrice,
       baseUnit: ('baseUnit' in p && p.baseUnit) ? p.baseUnit : null,
       baseUnitsPerStock: ('baseUnitsPerStock' in p && p.baseUnitsPerStock) ? p.baseUnitsPerStock : null,
+      servingUnit: ('servingUnit' in p && p.servingUnit) ? p.servingUnit : null,
+      servingSize: ('servingSize' in p && p.servingSize) ? p.servingSize : null,
+      parPerGuestUnit: ('parPerGuestUnit' in p && p.parPerGuestUnit) ? p.parPerGuestUnit : 'stock',
     })))
     .returning()
 

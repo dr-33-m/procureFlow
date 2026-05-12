@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Plus, Trash2, ScanLine, X } from 'lucide-react'
 import type { DetectedBarcode } from 'react-barcode-scanner'
 
@@ -34,8 +34,10 @@ import {
   formatPriceLabel,
   pricePerStockFromSupplier,
   purchasePackSizeOrOne,
+  servingsPerStockUnit,
   type ProductPricing,
 } from '@/server/lib/pricing'
+import { SERVING_PRESETS } from '@/lib/constants'
 
 interface SupplierEntry {
   name: string
@@ -57,7 +59,9 @@ export function AddItemDialog({ open, onClose }: AddItemDialogProps) {
   const [newQty, setNewQty] = useState<number>(0)
   const [newQtyUnit, setNewQtyUnit] = useState<'stock' | 'purchase'>('stock')
   const [newParPerGuest, setNewParPerGuest] = useState('')
-  const [newParPerGuestUnit, setNewParPerGuestUnit] = useState<'stock' | 'base'>('stock')
+  const [newParPerGuestUnit, setNewParPerGuestUnit] = useState<'stock' | 'base' | 'serving'>('stock')
+  const [servingUnit, setServingUnit] = useState('')
+  const [servingSize, setServingSize] = useState('')
   const [newBarcode, setNewBarcode] = useState('')
   const [scannerOpen, setScannerOpen] = useState(false)
   const [suppliers, setSuppliers] = useState<SupplierEntry[]>([])
@@ -74,6 +78,15 @@ export function AddItemDialog({ open, onClose }: AddItemDialogProps) {
   const [baseUnit, setBaseUnit] = useState('')
   const [baseUnitsPerStock, setBaseUnitsPerStock] = useState('')
 
+  // Auto-correct: if serving is selected but serving === base, use base
+  // (avoids the N×servingSize multiplication error in shopping list math)
+  useEffect(() => {
+    if (newParPerGuestUnit === 'serving' && servingUnit && baseUnit
+        && servingUnit.toLowerCase() === baseUnit.toLowerCase()) {
+      setNewParPerGuestUnit('base')
+    }
+  }, [servingUnit, baseUnit, newParPerGuestUnit])
+
   const { data: categories = [] } = useCategories()
   const createMutation = useCreateProduct()
 
@@ -87,6 +100,8 @@ export function AddItemDialog({ open, onClose }: AddItemDialogProps) {
     setNewQtyUnit('stock')
     setNewParPerGuest('')
     setNewParPerGuestUnit('stock')
+    setServingUnit('')
+    setServingSize('')
     setNewBarcode('')
     setSuppliers([])
     setSupplierName('')
@@ -141,6 +156,8 @@ export function AddItemDialog({ open, onClose }: AddItemDialogProps) {
         purchasePrice: purchasePrice ? parseFloat(purchasePrice) : null,
         baseUnit: hasBaseUnit ? baseUnit || null : null,
         baseUnitsPerStock: hasBaseUnit && baseUnitsPerStock ? parseFloat(baseUnitsPerStock) : null,
+        servingUnit: hasBaseUnit && servingUnit ? servingUnit : null,
+        servingSize: hasBaseUnit && servingSize ? parseFloat(servingSize) : null,
         barcode: newBarcode.trim() || null,
         suppliers: suppliers.map((s) => ({
           name: s.name,
@@ -180,6 +197,8 @@ export function AddItemDialog({ open, onClose }: AddItemDialogProps) {
           purchasePrice: purchasePrice || null,
           baseUnit: hasBaseUnit ? baseUnit || null : null,
           baseUnitsPerStock: hasBaseUnit && baseUnitsPerStock ? baseUnitsPerStock : null,
+          servingUnit: hasBaseUnit && servingUnit ? servingUnit : null,
+          servingSize: hasBaseUnit && servingSize ? servingSize : null,
         }
       : null
 
@@ -285,6 +304,9 @@ export function AddItemDialog({ open, onClose }: AddItemDialogProps) {
                       {categories.map((c) => (
                         <SelectItem key={c} value={c}>{c}</SelectItem>
                       ))}
+                      {newCategory && !categories.includes(newCategory) && (
+                        <SelectItem key={newCategory} value={newCategory}>{newCategory}</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                   <Button
@@ -400,28 +422,65 @@ export function AddItemDialog({ open, onClose }: AddItemDialogProps) {
               Has sub-unit (ml, g, slice, etc.)
             </label>
             {hasBaseUnit && (
-              <div className="grid grid-cols-2 gap-3 pl-6">
-                <div>
-                  <label className="mb-1 block text-xs text-muted-foreground">Base Unit</label>
-                  <Input
-                    placeholder="e.g. ml, g, slice"
-                    value={baseUnit}
-                    onChange={(e) => setBaseUnit(e.target.value)}
-                  />
+              <div className="space-y-3 pl-6">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block text-xs text-muted-foreground">Base Unit</label>
+                    <Input
+                      placeholder="e.g. ml, g, slice"
+                      value={baseUnit}
+                      onChange={(e) => setBaseUnit(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-muted-foreground">
+                      {baseUnit || 'base units'} per {newStockUnit || 'stock unit'}
+                    </label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      placeholder="e.g. 16"
+                      value={baseUnitsPerStock}
+                      onChange={(e) => setBaseUnitsPerStock(e.target.value)}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="mb-1 block text-xs text-muted-foreground">
-                    {baseUnit || 'base units'} per {newStockUnit || 'stock unit'}
-                  </label>
-                  <Input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    placeholder="e.g. 16"
-                    value={baseUnitsPerStock}
-                    onChange={(e) => setBaseUnitsPerStock(e.target.value)}
-                  />
-                </div>
+                {baseUnit && baseUnitsPerStock && (
+                  <div>
+                    <label className="mb-1 block text-xs text-muted-foreground">
+                      Serving unit <span className="text-muted-foreground/60">(optional)</span>
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input
+                        placeholder="e.g. glass, tbsp, slice"
+                        value={servingUnit}
+                        onChange={(e) => {
+                          const name = e.target.value
+                          setServingUnit(name)
+                          const presets = SERVING_PRESETS[name.toLowerCase()]
+                          const match = presets?.find((p) => p.baseUnit === baseUnit.toLowerCase())
+                          if (match) setServingSize(match.size.toString())
+                        }}
+                      />
+                      <div>
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          placeholder={`${baseUnit} per serving`}
+                          value={servingSize}
+                          onChange={(e) => setServingSize(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    {servingUnit && servingSize && parseFloat(baseUnitsPerStock) > 0 && parseFloat(servingSize) > 0 && (
+                      <p className="mt-1 text-xs text-muted-foreground italic">
+                        1 {newStockUnit || 'unit'} = {Math.floor(parseFloat(baseUnitsPerStock) / parseFloat(servingSize))} {servingUnit}s
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -452,12 +511,18 @@ export function AddItemDialog({ open, onClose }: AddItemDialogProps) {
               {hasBaseUnit && baseUnit && (
                 <Select
                   value={newParPerGuestUnit}
-                  onValueChange={(v) => setNewParPerGuestUnit(v as 'stock' | 'base')}
+                  onValueChange={(v) => setNewParPerGuestUnit(v as 'stock' | 'base' | 'serving')}
                 >
-                  <SelectTrigger className="w-28">
+                  <SelectTrigger className="w-32">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    {servingUnit && servingSize
+                      && servingUnit.toLowerCase() !== baseUnit?.toLowerCase() && (
+                      <SelectItem value="serving">
+                        {servingUnit}/guest
+                      </SelectItem>
+                    )}
                     <SelectItem value="base">
                       {baseUnit}/guest
                     </SelectItem>
@@ -473,6 +538,21 @@ export function AddItemDialog({ open, onClose }: AddItemDialogProps) {
                 </span>
               )}
             </div>
+            {newParPerGuest &&
+              newParPerGuestUnit === 'serving' &&
+              servingUnit &&
+              servingSize &&
+              baseUnitsPerStock &&
+              parseFloat(servingSize) > 0 &&
+              parseFloat(baseUnitsPerStock) > 0 && (
+                <p className="mt-1 text-xs text-muted-foreground italic">
+                  ≈ {((parseFloat(newParPerGuest) * parseFloat(servingSize)) / parseFloat(baseUnitsPerStock)).toFixed(3)}{' '}
+                  {newStockUnit || 'units'}/guest
+                  {pricingPreview && servingsPerStockUnit(pricingPreview) != null && (
+                    <> · 1 {newStockUnit || 'unit'} serves {Math.floor(servingsPerStockUnit(pricingPreview)! / parseFloat(newParPerGuest))} guests</>
+                  )}
+                </p>
+              )}
             {newParPerGuest &&
               newParPerGuestUnit === 'base' &&
               hasBaseUnit &&

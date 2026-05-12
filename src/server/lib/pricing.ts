@@ -20,9 +20,11 @@ export interface ProductPricing {
   purchasePrice: string | null
   baseUnit: string | null
   baseUnitsPerStock: string | null
+  servingUnit: string | null
+  servingSize: string | null
 }
 
-export type PricingUnit = 'stock' | 'base' | 'purchase'
+export type PricingUnit = 'stock' | 'base' | 'purchase' | 'serving'
 
 function num(s: string | null | undefined): number {
   if (s == null) return 0
@@ -61,14 +63,30 @@ export function toStockQty(
     if (baseUnits <= 0) return NaN
     return qty / baseUnits
   }
+  if (unit === 'serving') {
+    const servSize = num(p.servingSize)
+    const baseUnits = num(p.baseUnitsPerStock)
+    if (servSize <= 0 || baseUnits <= 0) return NaN
+    return (qty * servSize) / baseUnits
+  }
   return NaN
 }
 
 export function availablePricingUnits(p: ProductPricing): PricingUnit[] {
   const units: PricingUnit[] = ['stock']
   if (p.baseUnit) units.push('base')
+  if (p.servingUnit && num(p.servingSize) > 0) units.push('serving')
   if (p.purchaseUnit) units.push('purchase')
   return units
+}
+
+// How many servings fit in one stock unit.
+// Returns null if serving is not configured.
+export function servingsPerStockUnit(p: ProductPricing): number | null {
+  const servSize = num(p.servingSize)
+  const baseUnits = num(p.baseUnitsPerStock)
+  if (!p.servingUnit || servSize <= 0 || baseUnits <= 0) return null
+  return baseUnits / servSize
 }
 
 // Display: "$15.00 / case (20 bottles × 500 ml) ≈ $0.75 / bottle"

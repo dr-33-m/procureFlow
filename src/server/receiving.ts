@@ -43,6 +43,8 @@ async function recordPriceIfKnown(
     purchasePrice: product.purchasePrice,
     baseUnit: product.baseUnit,
     baseUnitsPerStock: product.baseUnitsPerStock,
+    servingUnit: null,
+    servingSize: null,
   }
 
   const packSize = product.purchaseUnit
@@ -211,6 +213,8 @@ export const getReceivingList = createServerFn({ method: 'GET' })
         purchasePrice: products.purchasePrice,
         baseUnit: products.baseUnit,
         baseUnitsPerStock: products.baseUnitsPerStock,
+        servingUnit: products.servingUnit,
+        servingSize: products.servingSize,
       })
       .from(shoppingListItems)
       .leftJoin(products, eq(shoppingListItems.productId, products.id))
@@ -237,6 +241,8 @@ export const getReceivingList = createServerFn({ method: 'GET' })
         purchasePrice: i.purchasePrice ?? null,
         baseUnit: i.baseUnit ?? null,
         baseUnitsPerStock: i.baseUnitsPerStock ?? null,
+        servingUnit: i.servingUnit ?? null,
+        servingSize: i.servingSize ?? null,
         suppliers: [],
       })),
       totalItems,

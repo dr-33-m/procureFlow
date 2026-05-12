@@ -142,6 +142,11 @@ export const products = pgTable(
       precision: 12,
       scale: 4,
     }),
+    // Serving unit: a human-friendly alias for a specific quantity of base units.
+    // e.g. servingUnit='glass', servingSize=250 means 1 glass = 250 ml (when baseUnit='ml').
+    // Used so users can express par as "1 glass/guest" instead of "250 ml/guest".
+    servingUnit: text('serving_unit'),
+    servingSize: numeric('serving_size', { precision: 10, scale: 4 }),
     // Default supplier lead time in days (null → hotel default of 3d).
     leadTimeDays: integer('lead_time_days'),
     createdAt: timestamp('created_at').defaultNow().notNull(),

@@ -42,6 +42,8 @@ export const getPantryStats = createServerFn({ method: 'GET' })
         purchasePrice: r.purchasePrice ?? null,
         baseUnit: r.baseUnit ?? null,
         baseUnitsPerStock: r.baseUnitsPerStock ?? null,
+        servingUnit: null,
+        servingSize: null,
       }
       return sum + qty * pricePerStockUnit(pricing)
     }, 0)
@@ -80,12 +82,15 @@ export const getInventoryItems = createServerFn({ method: 'GET' })
         productCategory: products.category,
         productSku: products.barcode,
         parPerGuest: products.parPerGuest,
+        parPerGuestUnit: products.parPerGuestUnit,
         stockUnit: products.stockUnit,
         purchaseUnit: products.purchaseUnit,
         purchasePackSize: products.purchasePackSize,
         purchasePrice: products.purchasePrice,
         baseUnit: products.baseUnit,
         baseUnitsPerStock: products.baseUnitsPerStock,
+        servingUnit: products.servingUnit,
+        servingSize: products.servingSize,
       })
       .from(inventory)
       .leftJoin(products, eq(inventory.productId, products.id))
@@ -130,12 +135,15 @@ export const getInventoryItems = createServerFn({ method: 'GET' })
         productCategory: r.productCategory ?? 'General',
         productSku: r.productSku ?? null,
         parPerGuest: r.parPerGuest ?? null,
+        parPerGuestUnit: r.parPerGuestUnit ?? 'stock',
         stockUnit: r.stockUnit ?? '',
         purchaseUnit: r.purchaseUnit ?? null,
         purchasePackSize: r.purchasePackSize ?? null,
         purchasePrice: r.purchasePrice ?? null,
         baseUnit: r.baseUnit ?? null,
         baseUnitsPerStock: r.baseUnitsPerStock ?? null,
+        servingUnit: r.servingUnit ?? null,
+        servingSize: r.servingSize ?? null,
         suppliers: suppliersByProduct[r.productId ?? ''] ?? [],
       })) as InventoryWithProduct[],
       total,
@@ -172,6 +180,8 @@ export const getProductCatalog = createServerFn({ method: 'GET' })
         purchasePrice: products.purchasePrice,
         baseUnit: products.baseUnit,
         baseUnitsPerStock: products.baseUnitsPerStock,
+        servingUnit: products.servingUnit,
+        servingSize: products.servingSize,
       })
       .from(products)
       .where(eq(products.branchId, branchId))
@@ -212,6 +222,8 @@ export const addInventoryItem = createServerFn({ method: 'POST' })
           purchasePrice: product.purchasePrice,
           baseUnit: product.baseUnit,
           baseUnitsPerStock: product.baseUnitsPerStock,
+          servingUnit: null,
+          servingSize: null,
         })
       }
     }
@@ -241,11 +253,14 @@ export const updateInventoryItem = createServerFn({ method: 'POST' })
       inventoryId: string
       quantity: number
       parPerGuest?: number | null
+      parPerGuestUnit?: 'stock' | 'base' | 'serving'
       purchasePrice?: number | null
       purchaseUnit?: string | null
       purchasePackSize?: number | null
       baseUnit?: string | null
       baseUnitsPerStock?: number | null
+      servingUnit?: string | null
+      servingSize?: number | null
       barcode?: string | null
     }) => data,
   )
@@ -260,11 +275,14 @@ export const updateInventoryItem = createServerFn({ method: 'POST' })
 
     const hasProductUpdate =
       data.parPerGuest !== undefined ||
+      data.parPerGuestUnit !== undefined ||
       data.purchasePrice !== undefined ||
       data.purchaseUnit !== undefined ||
       data.purchasePackSize !== undefined ||
       data.baseUnit !== undefined ||
       data.baseUnitsPerStock !== undefined ||
+      data.servingUnit !== undefined ||
+      data.servingSize !== undefined ||
       data.barcode !== undefined
 
     if (hasProductUpdate) {
@@ -286,10 +304,17 @@ export const updateInventoryItem = createServerFn({ method: 'POST' })
         if (data.purchasePackSize !== undefined)
           productUpdate.purchasePackSize =
             data.purchasePackSize != null ? data.purchasePackSize.toString() : null
+        if (data.parPerGuestUnit !== undefined)
+          productUpdate.parPerGuestUnit = data.parPerGuestUnit ?? 'stock'
         if (data.baseUnit !== undefined) productUpdate.baseUnit = data.baseUnit || null
         if (data.baseUnitsPerStock !== undefined)
           productUpdate.baseUnitsPerStock =
             data.baseUnitsPerStock != null ? data.baseUnitsPerStock.toString() : null
+        if (data.servingUnit !== undefined)
+          productUpdate.servingUnit = data.servingUnit || null
+        if (data.servingSize !== undefined)
+          productUpdate.servingSize =
+            data.servingSize != null ? data.servingSize.toString() : null
         if (data.barcode !== undefined) productUpdate.barcode = data.barcode || null
 
         try {
@@ -399,12 +424,14 @@ export const createProduct = createServerFn({ method: 'POST' })
       initialQuantity: number
       initialQuantityUnit?: 'stock' | 'purchase'
       parPerGuest?: number | null
-      parPerGuestUnit?: 'stock' | 'base'
+      parPerGuestUnit?: 'stock' | 'base' | 'serving'
       purchaseUnit?: string | null
       purchasePackSize?: number | null
       purchasePrice?: number | null
       baseUnit?: string | null
       baseUnitsPerStock?: number | null
+      servingUnit?: string | null
+      servingSize?: number | null
       leadTimeDays?: number | null
       barcode?: string | null
       suppliers?: Array<{
@@ -437,6 +464,8 @@ export const createProduct = createServerFn({ method: 'POST' })
       purchasePrice: data.purchasePrice != null ? data.purchasePrice.toString() : null,
       baseUnit: data.baseUnit ?? null,
       baseUnitsPerStock: data.baseUnitsPerStock != null ? data.baseUnitsPerStock.toString() : null,
+      servingUnit: data.servingUnit ?? null,
+      servingSize: data.servingSize != null ? data.servingSize.toString() : null,
     }
 
     const stockQty = toStockQty(
@@ -460,6 +489,8 @@ export const createProduct = createServerFn({ method: 'POST' })
         baseUnit: data.baseUnit || null,
         baseUnitsPerStock:
           data.baseUnitsPerStock != null ? data.baseUnitsPerStock.toString() : null,
+        servingUnit: data.servingUnit || null,
+        servingSize: data.servingSize != null ? data.servingSize.toString() : null,
         leadTimeDays: data.leadTimeDays ?? null,
         barcode: data.barcode || null,
       })
@@ -513,6 +544,9 @@ export const importInventoryFromCSV = createServerFn({ method: 'POST' })
           purchasePackSize?: number | null
           baseUnit?: string | null
           baseUnitsPerStock?: number | null
+          servingUnit?: string | null
+          servingSize?: number | null
+          parPerGuestUnit?: 'stock' | 'base' | 'serving'
           barcode?: string | null
         }>
       },
@@ -553,6 +587,10 @@ export const importInventoryFromCSV = createServerFn({ method: 'POST' })
         if (row.baseUnit) updateSet.baseUnit = row.baseUnit
         if (row.baseUnitsPerStock != null)
           updateSet.baseUnitsPerStock = row.baseUnitsPerStock.toString()
+        if (row.servingUnit) updateSet.servingUnit = row.servingUnit
+        if (row.servingSize != null)
+          updateSet.servingSize = row.servingSize.toString()
+        if (row.parPerGuestUnit) updateSet.parPerGuestUnit = row.parPerGuestUnit
         if (row.barcode) updateSet.barcode = row.barcode
         if (Object.keys(updateSet).length > 0) {
           await db.update(products).set(updateSet).where(eq(products.id, productId))
@@ -573,6 +611,9 @@ export const importInventoryFromCSV = createServerFn({ method: 'POST' })
             baseUnit: row.baseUnit || null,
             baseUnitsPerStock:
               row.baseUnitsPerStock != null ? row.baseUnitsPerStock.toString() : null,
+            servingUnit: row.servingUnit || null,
+            servingSize: row.servingSize != null ? row.servingSize.toString() : null,
+            parPerGuestUnit: row.parPerGuestUnit || 'stock',
             barcode: row.barcode || null,
           })
           .returning()

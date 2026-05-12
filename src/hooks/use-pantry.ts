@@ -64,7 +64,10 @@ export function useUpdateInventoryItem() {
       inventoryId: string
       quantity: number
       parPerGuest?: number | null
+      parPerGuestUnit?: 'stock' | 'base' | 'serving'
       purchasePrice?: number | null
+      servingUnit?: string | null
+      servingSize?: number | null
       barcode?: string | null
     }) => updateInventoryItem({ data: { ...data, branchId } }),
     onSuccess: () => {

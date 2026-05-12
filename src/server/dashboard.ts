@@ -58,6 +58,8 @@ export const getDashboardStats = createServerFn({ method: 'GET' })
         purchasePrice: r.purchasePrice ?? null,
         baseUnit: r.baseUnit ?? null,
         baseUnitsPerStock: r.baseUnitsPerStock ?? null,
+        servingUnit: null,
+        servingSize: null,
       }
       return sum + qty * pricePerStockUnit(pricing)
     }, 0)

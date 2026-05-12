@@ -156,6 +156,8 @@ export const getShoppingList = createServerFn({ method: 'GET' })
         purchasePrice: products.purchasePrice,
         baseUnit: products.baseUnit,
         baseUnitsPerStock: products.baseUnitsPerStock,
+        servingUnit: products.servingUnit,
+        servingSize: products.servingSize,
       })
       .from(shoppingListItems)
       .leftJoin(products, eq(shoppingListItems.productId, products.id))
@@ -190,6 +192,8 @@ export const getShoppingList = createServerFn({ method: 'GET' })
         purchasePrice: i.purchasePrice ?? null,
         baseUnit: i.baseUnit ?? null,
         baseUnitsPerStock: i.baseUnitsPerStock ?? null,
+        servingUnit: i.servingUnit ?? null,
+        servingSize: i.servingSize ?? null,
         suppliers: suppliersByProduct[i.productId ?? ''] ?? [],
       })),
     }
@@ -305,6 +309,8 @@ export const getProductsWithStock = createServerFn({ method: 'GET' })
         purchasePrice: products.purchasePrice,
         baseUnit: products.baseUnit,
         baseUnitsPerStock: products.baseUnitsPerStock,
+        servingUnit: products.servingUnit,
+        servingSize: products.servingSize,
         currentStock: inventory.quantity,
       })
       .from(products)
@@ -326,6 +332,8 @@ export const getProductsWithStock = createServerFn({ method: 'GET' })
       purchasePrice: r.purchasePrice ?? null,
       baseUnit: r.baseUnit ?? null,
       baseUnitsPerStock: r.baseUnitsPerStock ?? null,
+      servingUnit: r.servingUnit ?? null,
+      servingSize: r.servingSize ?? null,
       currentStock: parseFloat(r.currentStock ?? '0'),
     }))
   })
@@ -502,6 +510,8 @@ async function computeRestockSuggestions(
       baseUnitsPerStock: products.baseUnitsPerStock,
       parPerGuest: products.parPerGuest,
       parPerGuestUnit: products.parPerGuestUnit,
+      servingUnit: products.servingUnit,
+      servingSize: products.servingSize,
       leadTimeDays: products.leadTimeDays,
       onHand: inventory.quantity,
     })
@@ -569,6 +579,8 @@ async function computeRestockSuggestions(
       purchasePrice: p.purchasePrice,
       baseUnit: p.baseUnit,
       baseUnitsPerStock: p.baseUnitsPerStock,
+      servingUnit: p.servingUnit,
+      servingSize: p.servingSize,
     }
     const stockPrice = pricePerStockUnit(pricing)
     const packSize = purchasePackSizeOrOne(pricing)
@@ -599,7 +611,9 @@ async function computeRestockSuggestions(
     } else if (p.parPerGuest) {
       // Fall back to par level.
       let parInStock = parseFloat(p.parPerGuest)
-      if (p.parPerGuestUnit === 'base' && p.baseUnitsPerStock) {
+      if (p.parPerGuestUnit === 'serving' && p.servingSize && p.baseUnitsPerStock) {
+        parInStock = (parInStock * parseFloat(p.servingSize)) / parseFloat(p.baseUnitsPerStock)
+      } else if (p.parPerGuestUnit === 'base' && p.baseUnitsPerStock) {
         parInStock = parInStock / parseFloat(p.baseUnitsPerStock)
       }
       ratePerGuest = parInStock

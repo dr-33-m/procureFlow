@@ -29,7 +29,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { formatPriceLabel, pricePerStockFromSupplier, type ProductPricing } from '@/server/lib/pricing'
+import { formatPriceLabel, pricePerStockFromSupplier, servingsPerStockUnit, type ProductPricing } from '@/server/lib/pricing'
+import { SERVING_PRESETS } from '@/lib/constants'
 import type { InventoryWithProduct } from '@/types'
 
 interface EditItemDialogProps {
@@ -40,6 +41,20 @@ interface EditItemDialogProps {
 export function EditItemDialog({ item, onClose }: EditItemDialogProps) {
   const [qty, setQty] = useState<number>(parseFloat(item?.quantity ?? '0'))
   const [parPerGuest, setParPerGuest] = useState<string>(item?.parPerGuest ?? '')
+  const [parPerGuestUnit, setParPerGuestUnit] = useState<'stock' | 'base' | 'serving'>(() => {
+    const raw = (item?.parPerGuestUnit as 'stock' | 'base' | 'serving') ?? 'stock'
+    // When servingUnit === baseUnit, 'serving' is misleading (it means N×servingSize base units,
+    // not N base units). Normalize to 'base' so the math is correct.
+    if (raw === 'serving' && item?.servingUnit && item?.baseUnit
+        && item.servingUnit.toLowerCase() === item.baseUnit.toLowerCase()) {
+      return 'base'
+    }
+    return raw
+  })
+  const [editServingUnit, setEditServingUnit] = useState<string>(item?.servingUnit ?? '')
+  const [editServingSize, setEditServingSize] = useState<string>(
+    item?.servingSize ? parseFloat(item.servingSize).toString() : '',
+  )
   const [purchasePrice, setPurchasePrice] = useState<string>(
     item?.purchasePrice ? parseFloat(item.purchasePrice).toFixed(2) : '',
   )
@@ -62,7 +77,10 @@ export function EditItemDialog({ item, onClose }: EditItemDialogProps) {
         inventoryId: item.id,
         quantity: qty,
         parPerGuest: parPerGuest ? parseFloat(parPerGuest) : null,
+        parPerGuestUnit,
         purchasePrice: purchasePrice ? parseFloat(purchasePrice) : null,
+        servingUnit: editServingUnit || null,
+        servingSize: editServingSize ? parseFloat(editServingSize) : null,
         barcode: barcode.trim() || null,
       },
       { onSuccess: onClose },
@@ -103,6 +121,8 @@ export function EditItemDialog({ item, onClose }: EditItemDialogProps) {
         purchasePrice: purchasePrice || (item.purchasePrice ?? null),
         baseUnit: item.baseUnit ?? null,
         baseUnitsPerStock: item.baseUnitsPerStock ?? null,
+        servingUnit: editServingUnit || null,
+        servingSize: editServingSize || null,
       }
     : null
 
@@ -160,18 +180,105 @@ export function EditItemDialog({ item, onClose }: EditItemDialogProps) {
               Par Per Guest{' '}
               <span className="text-xs text-muted-foreground">(optional)</span>
             </label>
-            <Input
-              type="number"
-              min={0}
-              step="0.01"
-              placeholder="e.g. 0.25"
-              value={parPerGuest}
-              onChange={(e) => setParPerGuest(e.target.value)}
-            />
-            <p className="mt-1 text-xs text-muted-foreground">
-              Used to auto-calculate shopping list quantities from guest count.
-            </p>
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                placeholder="e.g. 0.25"
+                value={parPerGuest}
+                onChange={(e) => setParPerGuest(e.target.value)}
+                className="flex-1"
+              />
+              {item?.baseUnit ? (
+                <Select
+                  value={parPerGuestUnit}
+                  onValueChange={(v) => setParPerGuestUnit(v as 'stock' | 'base' | 'serving')}
+                >
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {editServingUnit && editServingSize
+                      && editServingUnit.toLowerCase() !== item.baseUnit?.toLowerCase() && (
+                      <SelectItem value="serving">
+                        {editServingUnit}/guest
+                      </SelectItem>
+                    )}
+                    <SelectItem value="base">
+                      {item.baseUnit}/guest
+                    </SelectItem>
+                    <SelectItem value="stock">
+                      {item.stockUnit}/guest
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <span className="flex items-center text-sm text-muted-foreground whitespace-nowrap">
+                  {item?.stockUnit || 'unit'}/guest
+                </span>
+              )}
+            </div>
+            {parPerGuest &&
+              parPerGuestUnit === 'serving' &&
+              editServingUnit &&
+              editServingSize &&
+              item?.baseUnitsPerStock &&
+              parseFloat(editServingSize) > 0 &&
+              parseFloat(item.baseUnitsPerStock) > 0 && (
+                <p className="mt-1 text-xs text-muted-foreground italic">
+                  ≈ {((parseFloat(parPerGuest) * parseFloat(editServingSize)) / parseFloat(item.baseUnitsPerStock)).toFixed(3)}{' '}
+                  {item.stockUnit}/guest
+                  {pricingPreview && servingsPerStockUnit(pricingPreview) != null && (
+                    <> · 1 {item.stockUnit} serves {Math.floor(servingsPerStockUnit(pricingPreview)! / parseFloat(parPerGuest))} guests</>
+                  )}
+                </p>
+              )}
+            {parPerGuest &&
+              parPerGuestUnit === 'base' &&
+              item?.baseUnitsPerStock && (
+                <p className="mt-1 text-xs text-muted-foreground italic">
+                  ≈ {(parseFloat(parPerGuest) / parseFloat(item.baseUnitsPerStock)).toFixed(3)}{' '}
+                  {item.stockUnit}/guest
+                </p>
+              )}
           </div>
+
+          {/* Serving unit setup (only when product has a base unit) */}
+          {item?.baseUnit && item?.baseUnitsPerStock && (
+            <div className="space-y-2 rounded-lg border p-3">
+              <label className="block text-sm font-medium">
+                Serving unit{' '}
+                <span className="text-xs text-muted-foreground">(optional)</span>
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  placeholder="e.g. glass, tbsp, slice"
+                  value={editServingUnit}
+                  onChange={(e) => {
+                    const name = e.target.value
+                    setEditServingUnit(name)
+                    const presets = SERVING_PRESETS[name.toLowerCase()]
+                    const match = presets?.find((p) => p.baseUnit === item.baseUnit?.toLowerCase())
+                    if (match) setEditServingSize(match.size.toString())
+                  }}
+                />
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  placeholder={`${item.baseUnit} per serving`}
+                  value={editServingSize}
+                  onChange={(e) => setEditServingSize(e.target.value)}
+                />
+              </div>
+              {editServingUnit && editServingSize && parseFloat(item.baseUnitsPerStock) > 0 && parseFloat(editServingSize) > 0 && (
+                <p className="text-xs text-muted-foreground italic">
+                  1 {item.stockUnit} = {Math.floor(parseFloat(item.baseUnitsPerStock) / parseFloat(editServingSize))} {editServingUnit}s
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Barcode */}
           <div>
