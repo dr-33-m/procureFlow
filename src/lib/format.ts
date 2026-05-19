@@ -48,6 +48,23 @@ export function formatQuantity(value: number | string): string {
   return Number.isInteger(num) ? String(num) : num.toFixed(2)
 }
 
+export function formatParPerGuest(row: {
+  parPerGuest: string | null
+  parPerGuestUnit: string | null
+  stockUnit: string
+  baseUnit: string | null
+  servingUnit: string | null
+}): string {
+  if (!row.parPerGuest) return '—'
+  const unit =
+    row.parPerGuestUnit === 'base' && row.baseUnit
+      ? row.baseUnit
+      : row.parPerGuestUnit === 'serving' && row.servingUnit
+        ? row.servingUnit
+        : row.stockUnit
+  return `${formatQuantity(row.parPerGuest)} ${unit}`
+}
+
 export function formatTime(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date
   return new Intl.DateTimeFormat('en-US', {

@@ -12,3 +12,6 @@ count.txt
 .vinxi
 __unconfig*
 todos.json
+
+# Local inventory CSVs (per-user fixtures, not part of the platform)
+src/assets/*.csv

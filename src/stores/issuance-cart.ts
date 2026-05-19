@@ -10,6 +10,10 @@ export type IssuanceInventoryItem = {
   category: string
   barcode: string | null
   parPerGuest: string | null
+  parPerGuestUnit: string | null
+  baseUnit: string | null
+  servingUnit: string | null
+  servingSize: string | null
   quantity: number
 }
 

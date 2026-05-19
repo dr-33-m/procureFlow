@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { QtyInput } from './qty-input'
 import { useIssuanceCart, type IssuanceInventoryItem } from '@/stores/issuance-cart'
-import { formatQuantity } from '@/lib/format'
+import { formatQuantity, formatParPerGuest } from '@/lib/format'
 import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
 
 const PAGE_SIZE = 10
@@ -73,7 +73,7 @@ export function IssuanceTable({ inventory }: IssuanceTableProps) {
       hideOnMobile: true,
       render: (row) => (
         <span className="text-sm text-muted-foreground">
-          {row.parPerGuest ? `${row.parPerGuest} ${row.stockUnit}` : '—'}
+          {formatParPerGuest(row)}
         </span>
       ),
     },

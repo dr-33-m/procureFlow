@@ -47,12 +47,15 @@ export const getInventoryForIssuance = createServerFn({ method: 'GET' })
         category: products.category,
         barcode: products.barcode,
         parPerGuest: products.parPerGuest,
+        parPerGuestUnit: products.parPerGuestUnit,
         quantity: inventory.quantity,
         purchaseUnit: products.purchaseUnit,
         purchasePackSize: products.purchasePackSize,
         purchasePrice: products.purchasePrice,
         baseUnit: products.baseUnit,
         baseUnitsPerStock: products.baseUnitsPerStock,
+        servingUnit: products.servingUnit,
+        servingSize: products.servingSize,
       })
       .from(inventory)
       .leftJoin(products, eq(inventory.productId, products.id))
