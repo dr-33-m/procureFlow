@@ -7,6 +7,7 @@ import {
   inventory,
   inventoryTransactions,
   productPriceHistory,
+  productBatches,
   users,
   branchMembers,
 } from '@/db'
@@ -305,8 +306,10 @@ export const updateReceivedQuantity = createServerFn({ method: 'POST' })
   })
 
 export const approveItem = createServerFn({ method: 'POST' })
-  .inputValidator((data: { itemId: string; branchId: string }) => data)
-  .handler(async ({ data: { itemId, branchId } }) => {
+  .inputValidator(
+    (data: { itemId: string; branchId: string; bestBefore?: string | null }) => data,
+  )
+  .handler(async ({ data: { itemId, branchId, bestBefore } }) => {
     const ctx = await getAuthContext()
     requireRole(ctx, 'owner', 'admin')
 
@@ -341,16 +344,27 @@ export const approveItem = createServerFn({ method: 'POST' })
         },
       })
 
-    await db.insert(inventoryTransactions).values({
+    const [txn] = await db
+      .insert(inventoryTransactions)
+      .values({
+        branchId,
+        productId,
+        type: 'RECEIVE',
+        quantityStock: qty.toString(),
+        unitAtEntry: 'stock',
+        referenceId: item.shoppingListId,
+        referenceType: 'shopping_list',
+        method: 'manual',
+        createdBy: ctx.userId,
+      })
+      .returning({ id: inventoryTransactions.id })
+
+    await db.insert(productBatches).values({
       branchId,
       productId,
-      type: 'RECEIVE',
       quantityStock: qty.toString(),
-      unitAtEntry: 'stock',
-      referenceId: item.shoppingListId,
-      referenceType: 'shopping_list',
-      method: 'manual',
-      createdBy: ctx.userId,
+      bestBefore: bestBefore ?? null,
+      sourceTransactionId: txn?.id ?? null,
     })
 
     await recordPriceIfKnown(productId, item.pricePerStockUnit)
@@ -358,8 +372,10 @@ export const approveItem = createServerFn({ method: 'POST' })
   })
 
 export const approveList = createServerFn({ method: 'POST' })
-  .inputValidator((data: { listId: string; branchId: string }) => data)
-  .handler(async ({ data: { listId, branchId } }) => {
+  .inputValidator(
+    (data: { listId: string; branchId: string; bestBefore?: string | null }) => data,
+  )
+  .handler(async ({ data: { listId, branchId, bestBefore } }) => {
     const ctx = await getAuthContext()
     requireRole(ctx, 'owner', 'admin')
 
@@ -390,16 +406,27 @@ export const approveList = createServerFn({ method: 'POST' })
           },
         })
 
-      await db.insert(inventoryTransactions).values({
+      const [txn] = await db
+        .insert(inventoryTransactions)
+        .values({
+          branchId,
+          productId,
+          type: 'RECEIVE',
+          quantityStock: qty.toString(),
+          unitAtEntry: 'stock',
+          referenceId: listId,
+          referenceType: 'shopping_list',
+          method: 'manual',
+          createdBy: ctx.userId,
+        })
+        .returning({ id: inventoryTransactions.id })
+
+      await db.insert(productBatches).values({
         branchId,
         productId,
-        type: 'RECEIVE',
         quantityStock: qty.toString(),
-        unitAtEntry: 'stock',
-        referenceId: listId,
-        referenceType: 'shopping_list',
-        method: 'manual',
-        createdBy: ctx.userId,
+        bestBefore: bestBefore ?? null,
+        sourceTransactionId: txn?.id ?? null,
       })
 
       await recordPriceIfKnown(productId, item.pricePerStockUnit)

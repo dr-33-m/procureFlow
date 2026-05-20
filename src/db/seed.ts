@@ -16,10 +16,14 @@ async function main() {
 
   // Clear existing data (cascade from branch handles most tables)
   await db.delete(schema.inventoryTransactions)
+  await db.delete(schema.productBatches)
   await db.delete(schema.inventory)
   await db.delete(schema.shoppingListItems)
   await db.delete(schema.shoppingLists)
   await db.delete(schema.stations)
+  await db.delete(schema.dishIngredients)
+  await db.delete(schema.dishes)
+  await db.delete(schema.menus)
   await db.delete(schema.productSuppliers)
   await db.delete(schema.products)
   await db.delete(schema.branchMembers)
@@ -318,6 +322,125 @@ async function main() {
     { branchId: branch.id, name: 'Pool Bar' },
   ])
   console.log(`✅ Stations: 3 inserted`)
+
+  // ─── Menus + Dishes + Recipes ─────────────────────────────────────────────
+  // Two example menus exercising the new tables. Recipes are deliberately
+  // light — the goal is to demonstrate the schema, not stock a real kitchen.
+  const [breakfastMenu] = await db
+    .insert(schema.menus)
+    .values({
+      branchId: branch.id,
+      name: 'Standard Breakfast',
+      mealType: 'breakfast',
+      notes: 'Default morning service — Continental + Hot options.',
+    })
+    .returning()
+
+  const [continentalDish] = await db
+    .insert(schema.dishes)
+    .values({
+      menuId: breakfastMenu.id,
+      name: 'Continental Breakfast',
+      description: 'Fresh fruit, pastry, granola with yogurt, juice, and coffee.',
+      defaultServingsPerGuest: '1',
+    })
+    .returning()
+
+  const [hotBreakfastDish] = await db
+    .insert(schema.dishes)
+    .values({
+      menuId: breakfastMenu.id,
+      name: 'Hot Breakfast',
+      description: 'Eggs cooked to order with seasonal sides and coffee.',
+      defaultServingsPerGuest: '1',
+    })
+    .returning()
+
+  const [dinnerMenu] = await db
+    .insert(schema.menus)
+    .values({
+      branchId: branch.id,
+      name: 'Standard Dinner',
+      mealType: 'dinner',
+      notes: 'Default evening service — protein-led mains.',
+    })
+    .returning()
+
+  const [beefDish] = await db
+    .insert(schema.dishes)
+    .values({
+      menuId: dinnerMenu.id,
+      name: 'Beef Tenderloin',
+      description: 'Pan-seared beef tenderloin with risotto and seasonal greens.',
+      defaultServingsPerGuest: '1',
+    })
+    .returning()
+
+  const [salmonDish] = await db
+    .insert(schema.dishes)
+    .values({
+      menuId: dinnerMenu.id,
+      name: 'Atlantic Salmon',
+      description: 'Grilled salmon fillet with lemon, served over salad greens.',
+      defaultServingsPerGuest: '1',
+    })
+    .returning()
+
+  // Helper to skip missing products gracefully (seed products may have been edited)
+  const recipe = (
+    dishId: string,
+    items: Array<{
+      productName: string
+      quantityPerServing: number
+      unit: 'stock' | 'base' | 'serving'
+      isSubstitutable?: boolean
+    }>,
+  ) =>
+    items
+      .map((i) => {
+        const p = productMap[i.productName]
+        if (!p) return null
+        return {
+          dishId,
+          productId: p.id,
+          quantityPerServing: i.quantityPerServing.toString(),
+          unit: i.unit,
+          isSubstitutable: i.isSubstitutable ?? false,
+        }
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null)
+
+  const ingredientRows = [
+    ...recipe(continentalDish.id, [
+      { productName: 'Grade A Large Eggs (12ct)', quantityPerServing: 2, unit: 'stock' },
+      { productName: 'Whole Grade-A Milk', quantityPerServing: 1, unit: 'stock' },
+      { productName: 'Unsalted Butter', quantityPerServing: 0.02, unit: 'stock' },
+      { productName: 'Organic Whole Bean Coffee 5lb', quantityPerServing: 0.04, unit: 'stock' },
+    ]),
+    ...recipe(hotBreakfastDish.id, [
+      { productName: 'Grade A Large Eggs (12ct)', quantityPerServing: 2, unit: 'stock' },
+      { productName: 'Whole Grade-A Milk', quantityPerServing: 1, unit: 'stock' },
+      { productName: 'Unsalted Butter', quantityPerServing: 0.03, unit: 'stock' },
+      { productName: 'Chicken Breast (Boneless)', quantityPerServing: 0.1, unit: 'stock', isSubstitutable: true },
+    ]),
+    ...recipe(beefDish.id, [
+      { productName: 'Beef Tenderloin', quantityPerServing: 0.2, unit: 'stock' },
+      { productName: 'Arborio Rice', quantityPerServing: 0.1, unit: 'stock' },
+      { productName: 'Mixed Salad Greens', quantityPerServing: 0.06, unit: 'stock' },
+      { productName: 'San Marzano Tomatoes', quantityPerServing: 0.05, unit: 'stock' },
+      { productName: 'Extra Virgin Olive Oil', quantityPerServing: 0.005, unit: 'stock' },
+    ]),
+    ...recipe(salmonDish.id, [
+      { productName: 'Atlantic Salmon Fillet', quantityPerServing: 0.18, unit: 'stock' },
+      { productName: 'Mixed Salad Greens', quantityPerServing: 0.08, unit: 'stock' },
+      { productName: 'Fresh Lemons', quantityPerServing: 0.25, unit: 'stock' },
+    ]),
+  ]
+
+  if (ingredientRows.length > 0) {
+    await db.insert(schema.dishIngredients).values(ingredientRows)
+  }
+  console.log(`✅ Menus: 2 menus, 4 dishes, ${ingredientRows.length} ingredient rows`)
 
   console.log('\n✨ Seed complete!')
   console.log(`\n📋 Summary:`)

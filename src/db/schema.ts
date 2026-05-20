@@ -3,6 +3,7 @@ import {
   uuid,
   text,
   timestamp,
+  date,
   numeric,
   integer,
   boolean,
@@ -329,5 +330,121 @@ export const inventoryTransactions = pgTable(
   (t) => [
     index('idx_transactions_product').on(t.productId),
     index('idx_transactions_branch').on(t.branchId),
+  ],
+)
+
+// ─── Menus ──────────────────────────────────────────────────────────────────
+
+// A named meal slot a manager configures once and reuses. The mealType
+// distinguishes daily-recurring services from one-off events; eventTag
+// (e.g. 'wedding', 'conference') further segments the learned per-guest rate
+// so a banquet doesn't pollute the weekday-dinner average.
+export const menus = pgTable(
+  'menus',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    branchId: uuid('branch_id')
+      .notNull()
+      .references(() => branches.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    mealType: text('meal_type').notNull(), // 'breakfast'|'lunch'|'dinner'|'drinks'|'event'
+    eventTag: text('event_tag'),
+    isActive: boolean('is_active').notNull().default(true),
+    notes: text('notes'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at'),
+  },
+  (t) => [
+    index('idx_menus_branch').on(t.branchId),
+    index('idx_menus_meal_type').on(t.mealType),
+  ],
+)
+
+// ─── Dishes ─────────────────────────────────────────────────────────────────
+
+// A dish on a menu, with both a chef-facing description and a structured
+// recipe (linked via dish_ingredients). defaultServingsPerGuest lets the
+// agent represent shared sides (0.5) and expected reorder buffers (1.3+).
+export const dishes = pgTable(
+  'dishes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    menuId: uuid('menu_id')
+      .notNull()
+      .references(() => menus.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    description: text('description'),
+    defaultServingsPerGuest: numeric('default_servings_per_guest', {
+      precision: 10,
+      scale: 4,
+    })
+      .notNull()
+      .default('1'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at'),
+  },
+  (t) => [index('idx_dishes_menu').on(t.menuId)],
+)
+
+// ─── Dish Ingredients ───────────────────────────────────────────────────────
+
+// The structured recipe — product + quantity per serving. Unit semantics
+// match the rest of the schema ('stock'|'base'|'serving'); conversion to
+// stock for demand math goes through toStockQty() in server/lib/pricing.
+// isSubstitutable lets the agent know a chef may swap (e.g. lettuce→cucumber).
+export const dishIngredients = pgTable(
+  'dish_ingredients',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    dishId: uuid('dish_id')
+      .notNull()
+      .references(() => dishes.id, { onDelete: 'cascade' }),
+    productId: uuid('product_id')
+      .notNull()
+      .references(() => products.id),
+    quantityPerServing: numeric('quantity_per_serving', {
+      precision: 10,
+      scale: 4,
+    }).notNull(),
+    unit: text('unit').notNull().default('base'), // 'stock'|'base'|'serving'
+    isSubstitutable: boolean('is_substitutable').notNull().default(false),
+    notes: text('notes'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => [
+    index('idx_dish_ingredients_dish').on(t.dishId),
+    index('idx_dish_ingredients_product').on(t.productId),
+  ],
+)
+
+// ─── Product Batches (expiry tracking) ──────────────────────────────────────
+
+// One row per receive event, FIFO-decremented on issue. inventory.quantity
+// stays the fast-read aggregate; batches answer "what's expiring in N days".
+// bestBefore is nullable — items without a date simply never trigger expiry
+// alerts. sourceTransactionId is a soft link to the originating RECEIVE row.
+export const productBatches = pgTable(
+  'product_batches',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    branchId: uuid('branch_id')
+      .notNull()
+      .references(() => branches.id, { onDelete: 'cascade' }),
+    productId: uuid('product_id')
+      .notNull()
+      .references(() => products.id, { onDelete: 'cascade' }),
+    quantityStock: numeric('quantity_stock', {
+      precision: 12,
+      scale: 4,
+    }).notNull(),
+    receivedAt: timestamp('received_at').defaultNow().notNull(),
+    bestBefore: date('best_before'),
+    sourceTransactionId: uuid('source_transaction_id'),
+    isDepleted: boolean('is_depleted').notNull().default(false),
+  },
+  (t) => [
+    index('idx_batches_product_branch').on(t.productId, t.branchId),
+    index('idx_batches_best_before').on(t.bestBefore),
+    index('idx_batches_active').on(t.isDepleted),
   ],
 )

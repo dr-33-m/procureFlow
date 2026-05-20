@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ShoppingListsIndexRouteImport } from './routes/shopping-lists/index'
 import { Route as ReceivingIndexRouteImport } from './routes/receiving/index'
 import { Route as PantryIndexRouteImport } from './routes/pantry/index'
+import { Route as MenusIndexRouteImport } from './routes/menus/index'
 import { Route as MembersIndexRouteImport } from './routes/members/index'
 import { Route as IssuanceIndexRouteImport } from './routes/issuance/index'
 import { Route as ShoppingListsCreateRouteImport } from './routes/shopping-lists/create'
@@ -22,6 +23,7 @@ import { Route as ReceivingListIdRouteImport } from './routes/receiving/$listId'
 import { Route as OnboardingRoleSelectRouteImport } from './routes/onboarding/role-select'
 import { Route as OnboardingJoinRouteImport } from './routes/onboarding/join'
 import { Route as OnboardingCreateCompanyRouteImport } from './routes/onboarding/create-company'
+import { Route as MenusMenuIdRouteImport } from './routes/menus/$menuId'
 import { Route as IssuanceActivityRouteImport } from './routes/issuance/activity'
 import { Route as ApiAiChatRouteImport } from './routes/api/ai-chat'
 import { Route as ShoppingListsIdIndexRouteImport } from './routes/shopping-lists/$id/index'
@@ -50,6 +52,11 @@ const ReceivingIndexRoute = ReceivingIndexRouteImport.update({
 const PantryIndexRoute = PantryIndexRouteImport.update({
   id: '/pantry/',
   path: '/pantry/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MenusIndexRoute = MenusIndexRouteImport.update({
+  id: '/menus/',
+  path: '/menus/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MembersIndexRoute = MembersIndexRouteImport.update({
@@ -95,6 +102,11 @@ const OnboardingJoinRoute = OnboardingJoinRouteImport.update({
 const OnboardingCreateCompanyRoute = OnboardingCreateCompanyRouteImport.update({
   id: '/onboarding/create-company',
   path: '/onboarding/create-company',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MenusMenuIdRoute = MenusMenuIdRouteImport.update({
+  id: '/menus/$menuId',
+  path: '/menus/$menuId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IssuanceActivityRoute = IssuanceActivityRouteImport.update({
@@ -147,6 +159,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/ai-chat': typeof ApiAiChatRoute
   '/issuance/activity': typeof IssuanceActivityRoute
+  '/menus/$menuId': typeof MenusMenuIdRoute
   '/onboarding/create-company': typeof OnboardingCreateCompanyRoute
   '/onboarding/join': typeof OnboardingJoinRoute
   '/onboarding/role-select': typeof OnboardingRoleSelectRoute
@@ -156,6 +169,7 @@ export interface FileRoutesByFullPath {
   '/shopping-lists/create': typeof ShoppingListsCreateRoute
   '/issuance/': typeof IssuanceIndexRoute
   '/members/': typeof MembersIndexRoute
+  '/menus/': typeof MenusIndexRoute
   '/pantry/': typeof PantryIndexRoute
   '/receiving/': typeof ReceivingIndexRoute
   '/shopping-lists/': typeof ShoppingListsIndexRoute
@@ -171,6 +185,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/ai-chat': typeof ApiAiChatRoute
   '/issuance/activity': typeof IssuanceActivityRoute
+  '/menus/$menuId': typeof MenusMenuIdRoute
   '/onboarding/create-company': typeof OnboardingCreateCompanyRoute
   '/onboarding/join': typeof OnboardingJoinRoute
   '/onboarding/role-select': typeof OnboardingRoleSelectRoute
@@ -180,6 +195,7 @@ export interface FileRoutesByTo {
   '/shopping-lists/create': typeof ShoppingListsCreateRoute
   '/issuance': typeof IssuanceIndexRoute
   '/members': typeof MembersIndexRoute
+  '/menus': typeof MenusIndexRoute
   '/pantry': typeof PantryIndexRoute
   '/receiving': typeof ReceivingIndexRoute
   '/shopping-lists': typeof ShoppingListsIndexRoute
@@ -196,6 +212,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/api/ai-chat': typeof ApiAiChatRoute
   '/issuance/activity': typeof IssuanceActivityRoute
+  '/menus/$menuId': typeof MenusMenuIdRoute
   '/onboarding/create-company': typeof OnboardingCreateCompanyRoute
   '/onboarding/join': typeof OnboardingJoinRoute
   '/onboarding/role-select': typeof OnboardingRoleSelectRoute
@@ -205,6 +222,7 @@ export interface FileRoutesById {
   '/shopping-lists/create': typeof ShoppingListsCreateRoute
   '/issuance/': typeof IssuanceIndexRoute
   '/members/': typeof MembersIndexRoute
+  '/menus/': typeof MenusIndexRoute
   '/pantry/': typeof PantryIndexRoute
   '/receiving/': typeof ReceivingIndexRoute
   '/shopping-lists/': typeof ShoppingListsIndexRoute
@@ -222,6 +240,7 @@ export interface FileRouteTypes {
     | '/'
     | '/api/ai-chat'
     | '/issuance/activity'
+    | '/menus/$menuId'
     | '/onboarding/create-company'
     | '/onboarding/join'
     | '/onboarding/role-select'
@@ -231,6 +250,7 @@ export interface FileRouteTypes {
     | '/shopping-lists/create'
     | '/issuance/'
     | '/members/'
+    | '/menus/'
     | '/pantry/'
     | '/receiving/'
     | '/shopping-lists/'
@@ -246,6 +266,7 @@ export interface FileRouteTypes {
     | '/'
     | '/api/ai-chat'
     | '/issuance/activity'
+    | '/menus/$menuId'
     | '/onboarding/create-company'
     | '/onboarding/join'
     | '/onboarding/role-select'
@@ -255,6 +276,7 @@ export interface FileRouteTypes {
     | '/shopping-lists/create'
     | '/issuance'
     | '/members'
+    | '/menus'
     | '/pantry'
     | '/receiving'
     | '/shopping-lists'
@@ -270,6 +292,7 @@ export interface FileRouteTypes {
     | '/'
     | '/api/ai-chat'
     | '/issuance/activity'
+    | '/menus/$menuId'
     | '/onboarding/create-company'
     | '/onboarding/join'
     | '/onboarding/role-select'
@@ -279,6 +302,7 @@ export interface FileRouteTypes {
     | '/shopping-lists/create'
     | '/issuance/'
     | '/members/'
+    | '/menus/'
     | '/pantry/'
     | '/receiving/'
     | '/shopping-lists/'
@@ -295,6 +319,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiAiChatRoute: typeof ApiAiChatRoute
   IssuanceActivityRoute: typeof IssuanceActivityRoute
+  MenusMenuIdRoute: typeof MenusMenuIdRoute
   OnboardingCreateCompanyRoute: typeof OnboardingCreateCompanyRoute
   OnboardingJoinRoute: typeof OnboardingJoinRoute
   OnboardingRoleSelectRoute: typeof OnboardingRoleSelectRoute
@@ -304,6 +329,7 @@ export interface RootRouteChildren {
   ShoppingListsCreateRoute: typeof ShoppingListsCreateRoute
   IssuanceIndexRoute: typeof IssuanceIndexRoute
   MembersIndexRoute: typeof MembersIndexRoute
+  MenusIndexRoute: typeof MenusIndexRoute
   PantryIndexRoute: typeof PantryIndexRoute
   ReceivingIndexRoute: typeof ReceivingIndexRoute
   ShoppingListsIndexRoute: typeof ShoppingListsIndexRoute
@@ -344,6 +370,13 @@ declare module '@tanstack/react-router' {
       path: '/pantry'
       fullPath: '/pantry/'
       preLoaderRoute: typeof PantryIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/menus/': {
+      id: '/menus/'
+      path: '/menus'
+      fullPath: '/menus/'
+      preLoaderRoute: typeof MenusIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/members/': {
@@ -407,6 +440,13 @@ declare module '@tanstack/react-router' {
       path: '/onboarding/create-company'
       fullPath: '/onboarding/create-company'
       preLoaderRoute: typeof OnboardingCreateCompanyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/menus/$menuId': {
+      id: '/menus/$menuId'
+      path: '/menus/$menuId'
+      fullPath: '/menus/$menuId'
+      preLoaderRoute: typeof MenusMenuIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/issuance/activity': {
@@ -479,6 +519,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiAiChatRoute: ApiAiChatRoute,
   IssuanceActivityRoute: IssuanceActivityRoute,
+  MenusMenuIdRoute: MenusMenuIdRoute,
   OnboardingCreateCompanyRoute: OnboardingCreateCompanyRoute,
   OnboardingJoinRoute: OnboardingJoinRoute,
   OnboardingRoleSelectRoute: OnboardingRoleSelectRoute,
@@ -488,6 +529,7 @@ const rootRouteChildren: RootRouteChildren = {
   ShoppingListsCreateRoute: ShoppingListsCreateRoute,
   IssuanceIndexRoute: IssuanceIndexRoute,
   MembersIndexRoute: MembersIndexRoute,
+  MenusIndexRoute: MenusIndexRoute,
   PantryIndexRoute: PantryIndexRoute,
   ReceivingIndexRoute: ReceivingIndexRoute,
   ShoppingListsIndexRoute: ShoppingListsIndexRoute,
