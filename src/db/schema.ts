@@ -417,6 +417,46 @@ export const dishIngredients = pgTable(
   ],
 )
 
+// ─── Kitchen Stock ──────────────────────────────────────────────────────────
+
+// Items issued from pantry into the kitchen buffer, awaiting EOD reconciliation.
+// One row per (product, issuance event) — captures both planning context
+// (expectedGuestCount, expectedServings, menuId, eventTag) and the link back
+// to the original ISSUE transaction. status flips to 'reconciled' (or 'partial')
+// when the chef closes the row out in Phase 3.
+export const kitchenStock = pgTable(
+  'kitchen_stock',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    branchId: uuid('branch_id')
+      .notNull()
+      .references(() => branches.id, { onDelete: 'cascade' }),
+    productId: uuid('product_id')
+      .notNull()
+      .references(() => products.id),
+    quantityIssued: numeric('quantity_issued', { precision: 12, scale: 4 }).notNull(),
+    quantityRemaining: numeric('quantity_remaining', {
+      precision: 12,
+      scale: 4,
+    }).notNull(),
+    expectedGuestCount: integer('expected_guest_count'),
+    expectedServings: integer('expected_servings'),
+    menuId: uuid('menu_id'), // soft link — Phase 3 may add FK once data settles
+    eventTag: text('event_tag'),
+    sourceTransactionId: uuid('source_transaction_id'),
+    status: text('status').notNull().default('pending'), // 'pending'|'reconciled'|'partial'
+    issuedAt: timestamp('issued_at').defaultNow().notNull(),
+    reconciledAt: timestamp('reconciled_at'),
+    notes: text('notes'),
+    createdBy: uuid('created_by').references(() => users.id),
+  },
+  (t) => [
+    index('idx_kitchen_stock_branch_status').on(t.branchId, t.status),
+    index('idx_kitchen_stock_product').on(t.productId),
+    index('idx_kitchen_stock_issued_at').on(t.issuedAt),
+  ],
+)
+
 // ─── Product Batches (expiry tracking) ──────────────────────────────────────
 
 // One row per receive event, FIFO-decremented on issue. inventory.quantity

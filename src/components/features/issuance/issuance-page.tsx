@@ -1,11 +1,12 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { getRouteApi, Link } from '@tanstack/react-router'
-import { ExternalLink, TrendingUp } from 'lucide-react'
+import { ExternalLink, Sparkles, TrendingUp } from 'lucide-react'
 import { AppLayout } from '@/components/layout/app-layout'
 import { Button } from '@/components/ui/button'
 import { IssuanceFilters } from './issuance-filters'
 import { IssuanceTable } from './issuance-table'
 import { DeductionCart } from './deduction-cart'
+import { AIIssuanceDrawer } from './ai-issuance-drawer'
 import { useInventoryForIssuance, useRecentIssuances, useTodayIssuanceStats } from '@/hooks/use-issuance'
 import { usePermissions } from '@/hooks/use-permissions'
 import { formatQuantity, formatTime } from '@/lib/format'
@@ -14,6 +15,7 @@ const routeApi = getRouteApi('/issuance/')
 
 export function IssuancePage() {
   const { q, category } = routeApi.useSearch()
+  const [aiOpen, setAIOpen] = useState(false)
 
   const { data: inventory = [] } = useInventoryForIssuance()
   const { data: recentIssuances = [] } = useRecentIssuances()
@@ -23,6 +25,8 @@ export function IssuancePage() {
     () => Array.from(new Set(inventory.map((i) => i.category))).sort(),
     [inventory],
   )
+
+  const { canIssueStock } = usePermissions()
 
   const filteredInventory = useMemo(() => {
     const lower = (q ?? '').toLowerCase()
@@ -37,7 +41,6 @@ export function IssuancePage() {
     })
   }, [inventory, q, category])
 
-  const { canIssueStock } = usePermissions()
   const deltaSign = (todayStats?.deltaPercent ?? 0) >= 0 ? '+' : ''
 
   return (
@@ -54,6 +57,16 @@ export function IssuancePage() {
           </p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
+          {canIssueStock && (
+            <Button
+              size="sm"
+              className="gap-2"
+              onClick={() => setAIOpen(true)}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              AI Assistant
+            </Button>
+          )}
           <Link to="/issuance/activity" search={{ page: 1 }}>
             <Button variant="outline" size="sm" className="gap-2">
               <ExternalLink className="h-3.5 w-3.5" />
@@ -120,6 +133,8 @@ export function IssuancePage() {
           <DeductionCart />
         </div>
       )}
+
+      <AIIssuanceDrawer open={aiOpen} onOpenChange={setAIOpen} />
     </AppLayout>
   )
 }

@@ -29,6 +29,13 @@
       "when": 1779223896825,
       "tag": "0003_bumpy_rocket_raccoon",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1779260017670,
+      "tag": "0004_lethal_proudstar",
+      "breakpoints": true
     }
   ]
 }

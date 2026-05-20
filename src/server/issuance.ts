@@ -1,9 +1,72 @@
 import { createServerFn } from '@tanstack/react-start'
-import { db, products, inventory, inventoryTransactions, users } from '@/db'
-import { eq, and, sql, ilike, or, desc, gte, inArray } from 'drizzle-orm'
+import {
+  db,
+  products,
+  inventory,
+  inventoryTransactions,
+  productBatches,
+  kitchenStock,
+  users,
+} from '@/db'
+import { eq, and, sql, ilike, or, desc, asc, gte, inArray } from 'drizzle-orm'
 import { toStockQty, type ProductPricing } from '@/server/lib/pricing'
 import { getAuthContext, requireRole } from '@/server/auth/context'
 import type { RecentIssuance, TodayIssuanceStats } from '@/types'
+
+// FIFO-decrement product_batches for a given issued quantity. Oldest
+// bestBefore first; batches without a bestBefore fall to the end (we still
+// consume them, but only after dated stock is gone). If total batch stock is
+// short, we consume what's there — inventory.quantity is the authoritative
+// total and is decremented separately via GREATEST(0, ...).
+async function consumeFromBatches(
+  branchId: string,
+  productId: string,
+  qtyToConsume: number,
+): Promise<void> {
+  if (qtyToConsume <= 0) return
+
+  const batches = await db
+    .select({
+      id: productBatches.id,
+      quantityStock: productBatches.quantityStock,
+    })
+    .from(productBatches)
+    .where(
+      and(
+        eq(productBatches.branchId, branchId),
+        eq(productBatches.productId, productId),
+        eq(productBatches.isDepleted, false),
+      ),
+    )
+    // bestBefore ASC NULLS LAST, then receivedAt ASC — dated stock goes first.
+    .orderBy(
+      sql`${productBatches.bestBefore} ASC NULLS LAST`,
+      asc(productBatches.receivedAt),
+    )
+
+  let remaining = qtyToConsume
+  for (const batch of batches) {
+    if (remaining <= 0) break
+    const available = parseFloat(batch.quantityStock)
+    if (available <= 0) continue
+
+    if (available <= remaining) {
+      // Deplete this batch entirely.
+      await db
+        .update(productBatches)
+        .set({ quantityStock: '0', isDepleted: true })
+        .where(eq(productBatches.id, batch.id))
+      remaining -= available
+    } else {
+      // Partial draw.
+      await db
+        .update(productBatches)
+        .set({ quantityStock: (available - remaining).toString() })
+        .where(eq(productBatches.id, batch.id))
+      remaining = 0
+    }
+  }
+}
 
 export const searchProducts = createServerFn({ method: 'GET' })
   .inputValidator((data: { branchId: string; query: string }) => data)
@@ -210,11 +273,24 @@ export const issueStock = createServerFn({ method: 'POST' })
     (data: {
       branchId: string
       guestCount?: number | null
+      // AI context (optional) — set when this issuance was proposed by the
+      // issuance agent and approved in the cart. Stored on kitchen_stock rows
+      // so reconciliation can segment learned rates downstream.
+      menuId?: string | null
+      eventTag?: string | null
+      expectedServings?: number | null
       items: Array<{
         productId: string
         deductQty: number
         deductUnit: 'stock' | 'purchase'
         station: string
+        basis?:
+          | 'learned-rate'
+          | 'menu-recipe'
+          | 'expiry-driven'
+          | 'manual-override'
+          | 'fallback-static-par'
+        lineReasoning?: string
       }>
     }) => data,
   )
@@ -222,7 +298,7 @@ export const issueStock = createServerFn({ method: 'POST' })
     const ctx = await getAuthContext()
     requireRole(ctx, 'owner', 'admin')
 
-    const { branchId, guestCount, items } = data
+    const { branchId, guestCount, menuId, eventTag, expectedServings, items } = data
 
     const purchaseItems = items.filter((i) => i.deductUnit === 'purchase')
     const packagingMap = new Map<string, ProductPricing>()
@@ -265,6 +341,7 @@ export const issueStock = createServerFn({ method: 'POST' })
           ? toStockQty(item.deductQty, 'purchase', pricing)
           : item.deductQty
 
+      // 1) Decrement the aggregate inventory row.
       await db
         .update(inventory)
         .set({
@@ -275,17 +352,45 @@ export const issueStock = createServerFn({ method: 'POST' })
           and(eq(inventory.branchId, branchId), eq(inventory.productId, item.productId)),
         )
 
-      await db.insert(inventoryTransactions).values({
+      // 2) Record the canonical ISSUE transaction, capturing its id so the
+      //    kitchen_stock row can link back.
+      const [txn] = await db
+        .insert(inventoryTransactions)
+        .values({
+          branchId,
+          productId: item.productId,
+          type: 'ISSUE',
+          quantityStock: (-stockQty).toString(),
+          unitAtEntry: item.deductUnit,
+          guestCount: guestCount ?? null,
+          method: 'manual',
+          station: item.station,
+          createdBy: ctx.userId,
+        })
+        .returning({ id: inventoryTransactions.id })
+
+      // 3) Insert kitchen_stock row — Phase 3 reconciliation operates on this.
+      const reasoning = item.lineReasoning ? item.lineReasoning : null
+      const notes = item.basis
+        ? `basis: ${item.basis}${reasoning ? ` — ${reasoning}` : ''}`
+        : null
+      await db.insert(kitchenStock).values({
         branchId,
         productId: item.productId,
-        type: 'ISSUE',
-        quantityStock: (-stockQty).toString(),
-        unitAtEntry: item.deductUnit,
-        guestCount: guestCount ?? null,
-        method: 'manual',
-        station: item.station,
+        quantityIssued: stockQty.toString(),
+        quantityRemaining: stockQty.toString(),
+        expectedGuestCount: guestCount ?? null,
+        expectedServings: expectedServings ?? null,
+        menuId: menuId ?? null,
+        eventTag: eventTag ?? null,
+        sourceTransactionId: txn?.id ?? null,
+        status: 'pending',
+        notes,
         createdBy: ctx.userId,
       })
+
+      // 4) FIFO-decrement product batches so expiry views stay accurate.
+      await consumeFromBatches(branchId, item.productId, stockQty)
     }
 
     return { success: true }

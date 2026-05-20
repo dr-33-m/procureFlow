@@ -1,6 +1,17 @@
 import { useState } from 'react'
-import { ShoppingCart, ChevronUp, X, PackageMinus, Loader2, Plus, Users } from 'lucide-react'
+import {
+  ShoppingCart,
+  ChevronUp,
+  X,
+  PackageMinus,
+  Loader2,
+  Plus,
+  Users,
+  Sparkles,
+  ChevronDown,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -9,9 +20,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useIssuanceCart } from '@/stores/issuance-cart'
+import { useIssuanceCart, type LineBasis } from '@/stores/issuance-cart'
 import { useIssueStock } from '@/hooks/use-issuance'
 import { useStations, useCreateStation } from '@/hooks/use-stations'
+
+const BASIS_LABEL: Record<LineBasis, string> = {
+  'learned-rate': 'Learned',
+  'menu-recipe': 'Recipe',
+  'expiry-driven': 'Expiry',
+  'manual-override': 'Manual',
+  'fallback-static-par': 'Static par',
+}
 
 export function DeductionCart() {
   const {
@@ -19,6 +38,7 @@ export function DeductionCart() {
     cartOpen,
     station,
     guestCount,
+    aiProposal,
     removeFromCart,
     clearCart,
     setCartOpen,
@@ -31,17 +51,23 @@ export function DeductionCart() {
   const { data: stations = [] } = useStations()
   const createStationMutation = useCreateStation()
   const [newStationName, setNewStationName] = useState('')
+  const [reasoningOpen, setReasoningOpen] = useState(false)
 
   const handleDeduct = () => {
     if (deductionList.length === 0) return
     issueMutation.mutate(
       {
         guestCount: guestCount ?? undefined,
+        menuId: aiProposal?.menuId ?? undefined,
+        eventTag: aiProposal?.eventTag ?? undefined,
+        expectedServings: aiProposal?.expectedServings ?? undefined,
         items: deductionList.map((i) => ({
           productId: i.productId,
           deductQty: i.deductQty,
           deductUnit: i.deductUnit,
           station,
+          basis: i.basis,
+          lineReasoning: i.lineReasoning,
         })),
       },
       { onSuccess: clearCart },
@@ -99,6 +125,35 @@ export function DeductionCart() {
           <ChevronUp className="h-4 w-4" />
         </button>
       </div>
+
+      {/* AI Proposal banner */}
+      {aiProposal && (
+        <div className="border-b bg-primary/5 px-4 py-2">
+          <div className="flex items-start gap-2">
+            <Sparkles className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium leading-tight">{aiProposal.summary}</p>
+              <button
+                type="button"
+                onClick={() => setReasoningOpen((o) => !o)}
+                className="mt-1 inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
+              >
+                {reasoningOpen ? (
+                  <ChevronUp className="h-3 w-3" />
+                ) : (
+                  <ChevronDown className="h-3 w-3" />
+                )}
+                {reasoningOpen ? 'Hide' : 'Show'} reasoning
+              </button>
+              {reasoningOpen && (
+                <p className="mt-1 whitespace-pre-wrap text-[11px] text-muted-foreground">
+                  {aiProposal.reasoning}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Guest count stepper */}
       <div className="border-b px-4 py-3">
@@ -211,7 +266,19 @@ export function DeductionCart() {
             <div key={item.productId} className="px-4 py-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{item.productName}</p>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="text-sm font-medium truncate">{item.productName}</p>
+                    {item.basis && (
+                      <Badge variant="outline" className="text-[9px] h-4 px-1.5 shrink-0">
+                        {BASIS_LABEL[item.basis]}
+                      </Badge>
+                    )}
+                  </div>
+                  {item.lineReasoning && (
+                    <p className="mt-0.5 text-[10px] text-muted-foreground line-clamp-2">
+                      {item.lineReasoning}
+                    </p>
+                  )}
                   <div className="mt-1 space-y-1">
                     <div className="flex items-center gap-2">
                       <p className="text-xs text-muted-foreground">
