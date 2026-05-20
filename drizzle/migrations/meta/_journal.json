@@ -36,6 +36,13 @@
       "when": 1779260017670,
       "tag": "0004_lethal_proudstar",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1779303755797,
+      "tag": "0005_absurd_onslaught",
+      "breakpoints": true
     }
   ]
 }

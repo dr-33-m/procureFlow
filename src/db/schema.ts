@@ -457,6 +457,78 @@ export const kitchenStock = pgTable(
   ],
 )
 
+// ─── Kitchen Reconciliations (chef EOD report) ──────────────────────────────
+
+// One row per service the chef closes out. Carries the planning vs. reality
+// gap (expectedGuestCount lives on kitchen_stock; this captures what actually
+// happened). actualServings >= actualGuestCount when guests had seconds.
+export const kitchenReconciliations = pgTable(
+  'kitchen_reconciliations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    branchId: uuid('branch_id')
+      .notNull()
+      .references(() => branches.id, { onDelete: 'cascade' }),
+    serviceDate: date('service_date').notNull(),
+    mealType: text('meal_type').notNull(), // 'breakfast'|'lunch'|'dinner'|'drinks'|'event'
+    eventTag: text('event_tag'),
+    actualGuestCount: integer('actual_guest_count').notNull(),
+    actualServings: integer('actual_servings').notNull(),
+    // Generated column: actualServings / actualGuestCount. Reorder ratio
+    // drives the issuance agent's buffer multiplier on future services.
+    reorderRatio: numeric('reorder_ratio', { precision: 6, scale: 3 }),
+    notes: text('notes'),
+    reportedAt: timestamp('reported_at').defaultNow().notNull(),
+    createdBy: uuid('created_by').references(() => users.id),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => [
+    index('idx_reconciliations_branch_meal').on(t.branchId, t.mealType),
+    index('idx_reconciliations_service_date').on(t.serviceDate),
+  ],
+)
+
+// One row per product reconciled. The single most important column for
+// learning is `reason` — without it the system can't tell a real par shift
+// from a one-off spike. perGuestUsedStock + perServingUsedStock are
+// snapshots so analytics queries don't have to recompute.
+export const kitchenReconciliationItems = pgTable(
+  'kitchen_reconciliation_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    reconciliationId: uuid('reconciliation_id')
+      .notNull()
+      .references(() => kitchenReconciliations.id, { onDelete: 'cascade' }),
+    kitchenStockId: uuid('kitchen_stock_id'),
+    productId: uuid('product_id')
+      .notNull()
+      .references(() => products.id),
+    quantityUsed: numeric('quantity_used', { precision: 12, scale: 4 }).notNull(),
+    quantityWaste: numeric('quantity_waste', { precision: 12, scale: 4 })
+      .notNull()
+      .default('0'),
+    quantityLeftover: numeric('quantity_leftover', { precision: 12, scale: 4 })
+      .notNull()
+      .default('0'),
+    // Structured reason codes — see system prompt for canonical list.
+    reason: text('reason').notNull().default('normal'),
+    reasonNotes: text('reason_notes'),
+    perGuestUsedStock: numeric('per_guest_used_stock', {
+      precision: 12,
+      scale: 6,
+    }),
+    perServingUsedStock: numeric('per_serving_used_stock', {
+      precision: 12,
+      scale: 6,
+    }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => [
+    index('idx_reconciliation_items_product').on(t.productId),
+    index('idx_reconciliation_items_recon').on(t.reconciliationId),
+  ],
+)
+
 // ─── Product Batches (expiry tracking) ──────────────────────────────────────
 
 // One row per receive event, FIFO-decremented on issue. inventory.quantity

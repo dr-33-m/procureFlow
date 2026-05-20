@@ -15,6 +15,8 @@ export function usePermissions() {
     canViewIssuance: hasRole('owner', 'admin', 'chef'),
     canViewMenus: hasRole('owner', 'admin', 'chef'),
     canManageMenus: hasRole('owner', 'admin'),
+    canViewKitchen: hasRole('owner', 'admin', 'chef', 'runner'),
+    canReconcileKitchen: hasRole('owner', 'admin', 'chef'),
     canViewReceiving: hasRole('owner', 'admin'),
     canViewMembers: hasRole('owner', 'admin'),
     canSwitchBranch: hasRole('owner', 'admin'),

@@ -12,6 +12,7 @@ import {
   Building2,
   Settings,
   ChefHat,
+  CookingPot,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -56,6 +57,7 @@ const navItems: NavItem[] = [
   { label: 'Pantry', href: '/pantry', icon: Package, roles: ['owner', 'admin', 'chef'] },
   { label: 'Menus', href: '/menus', icon: ChefHat, roles: ['owner', 'admin', 'chef'] },
   { label: 'Issuance', href: '/issuance', icon: PackagePlus, roles: ['owner', 'admin', 'chef'] },
+  { label: 'Kitchen', href: '/kitchen', icon: CookingPot, roles: ['owner', 'admin', 'chef', 'runner'] },
 ]
 
 const ROLE_LABELS: Record<UserRole, string> = {
