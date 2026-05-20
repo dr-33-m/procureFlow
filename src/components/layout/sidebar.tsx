@@ -54,8 +54,8 @@ const navItems: NavItem[] = [
   { label: 'Shopping Lists', href: '/shopping-lists', icon: ShoppingCart },
   { label: 'Receiving', href: '/receiving', icon: ClipboardList, roles: ['owner', 'admin'] },
   { label: 'Pantry', href: '/pantry', icon: Package, roles: ['owner', 'admin', 'chef'] },
-  { label: 'Issuance', href: '/issuance', icon: PackagePlus, roles: ['owner', 'admin', 'chef'] },
   { label: 'Menus', href: '/menus', icon: ChefHat, roles: ['owner', 'admin', 'chef'] },
+  { label: 'Issuance', href: '/issuance', icon: PackagePlus, roles: ['owner', 'admin', 'chef'] },
 ]
 
 const ROLE_LABELS: Record<UserRole, string> = {
