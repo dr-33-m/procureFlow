@@ -15,6 +15,10 @@ export type IssuanceInventoryItem = {
   servingUnit: string | null
   servingSize: string | null
   quantity: number
+  learnedPerGuestStock: number | null
+  learnedConfidence: 'low' | 'medium' | 'high' | null
+  learnedSource: 'reconciliation' | 'issuance' | 'static-par' | 'none' | null
+  learnedSampleSize: number
 }
 
 export type LineBasis =

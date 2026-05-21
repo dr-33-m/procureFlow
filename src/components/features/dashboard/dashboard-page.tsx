@@ -7,14 +7,12 @@ import {
   ClipboardList,
   ChevronRight,
   Sparkles,
-  Loader2,
 } from 'lucide-react'
 import { AppLayout } from '@/components/layout/app-layout'
 import { DataTable, type ColumnDef } from '@/components/ui/data-table'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Button } from '@/components/ui/button'
 import { useDashboardStats, useRecentActivity } from '@/hooks/use-dashboard'
-import { useGenerateDraftFromDefaults } from '@/hooks/use-shopping-lists'
 import { formatDate, formatCurrency, formatCurrencyFull, formatRelativeTime } from '@/lib/format'
 import { getCurrentShift } from '@/lib/constants'
 import type { RecentListActivity } from '@/types'
@@ -59,15 +57,6 @@ export function DashboardPage() {
   const navigate = useNavigate()
   const { data: stats } = useDashboardStats()
   const { data: recentActivity = [] } = useRecentActivity()
-  const generateMutation = useGenerateDraftFromDefaults()
-
-  const handleQuickGenerate = () => {
-    generateMutation.mutate(undefined, {
-      onSuccess: (list) => {
-        if (list) navigate({ to: '/shopping-lists/$id', params: { id: list.id } })
-      },
-    })
-  }
 
   const today = new Date()
   const shift = getCurrentShift()
@@ -182,26 +171,21 @@ export function DashboardPage() {
       {/* Quick Actions */}
       <div className="mb-4 rounded-xl border bg-muted/50 p-0.5">
         <div className="grid grid-cols-1 gap-0.5 sm:grid-cols-3">
-          <button
-            type="button"
-            onClick={handleQuickGenerate}
-            disabled={generateMutation.isPending}
-            className="flex items-center gap-3 rounded-lg bg-card p-3 hover:bg-accent transition-colors disabled:opacity-60"
+          <Link
+            to="/shopping-lists/create"
+            search={{ ai: true }}
+            className="flex items-center gap-3 rounded-lg bg-card p-3 hover:bg-accent transition-colors"
           >
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-600">
-              {generateMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin text-white" />
-              ) : (
-                <Sparkles className="h-4 w-4 text-white" />
-              )}
+              <Sparkles className="h-4 w-4 text-white" />
             </div>
             <div className="text-left">
-              <span className="block font-semibold">
-                {generateMutation.isPending ? 'Generating…' : 'Generate This Week\'s List'}
+              <span className="block font-semibold">Create List with AI</span>
+              <span className="text-xs text-muted-foreground">
+                Generate from learned rates &amp; menus
               </span>
-              <span className="text-xs text-muted-foreground">Auto-fill from history &amp; par levels</span>
             </div>
-          </button>
+          </Link>
           <Link
             to="/shopping-lists/create"
             className="flex items-center gap-3 rounded-lg bg-card p-3 hover:bg-accent transition-colors"

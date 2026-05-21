@@ -1,11 +1,11 @@
+import { and, eq, gte, inArray, isNotNull, notInArray } from 'drizzle-orm'
 import {
   db,
   inventoryTransactions,
-  kitchenReconciliations,
   kitchenReconciliationItems,
+  kitchenReconciliations,
   products,
 } from '@/db'
-import { and, eq, isNotNull, gte, inArray, notInArray } from 'drizzle-orm'
 import { toStockQty } from '@/server/lib/pricing'
 
 const DEFAULT_LOOKBACK_DAYS = 60
@@ -37,12 +37,12 @@ export type LearnedPerGuest = {
 
 export async function getLearnedPerGuest(opts: {
   branchId: string
-  productIds: string[]
+  productIds: Array<string>
   mealType?: string
   eventTag?: string
   lookbackDays?: number
   halfLifeDays?: number
-}): Promise<LearnedPerGuest[]> {
+}): Promise<Array<LearnedPerGuest>> {
   const { branchId, productIds, mealType, eventTag } = opts
   if (productIds.length === 0) return []
 

@@ -1,17 +1,19 @@
 import { createServerFn } from '@tanstack/react-start'
+import { and, asc, desc, eq, gte, ilike, inArray, or, sql } from 'drizzle-orm'
+import type { RecentIssuance, TodayIssuanceStats } from '@/types'
+import type {ProductPricing} from '@/server/lib/pricing';
 import {
   db,
-  products,
   inventory,
   inventoryTransactions,
-  productBatches,
   kitchenStock,
+  productBatches,
+  products,
   users,
 } from '@/db'
-import { eq, and, sql, ilike, or, desc, asc, gte, inArray } from 'drizzle-orm'
-import { toStockQty, type ProductPricing } from '@/server/lib/pricing'
+import {  toStockQty } from '@/server/lib/pricing'
+import { getLearnedPerGuest } from '@/server/lib/learned-par'
 import { getAuthContext, requireRole } from '@/server/auth/context'
-import type { RecentIssuance, TodayIssuanceStats } from '@/types'
 
 // FIFO-decrement product_batches for a given issued quantity. Oldest
 // bestBefore first; batches without a bestBefore fall to the end (we still
@@ -125,21 +127,35 @@ export const getInventoryForIssuance = createServerFn({ method: 'GET' })
       .where(eq(inventory.branchId, branchId))
       .orderBy(products.category, products.name)
 
+    const productIds = rows
+      .map((r) => r.productId)
+      .filter((id): id is string => id != null)
+
+    const learnedRates = await getLearnedPerGuest({ branchId, productIds })
+    const learnedMap = new Map(learnedRates.map((l) => [l.productId, l]))
+
     return rows
       .filter((r) => r.productId != null)
-      .map((r) => ({
-        ...r,
-        productId: r.productId as string,
-        name: r.name ?? 'Unknown',
-        stockUnit: r.stockUnit ?? '',
-        category: r.category ?? 'General',
-        quantity: parseFloat(r.quantity ?? '0'),
-      }))
+      .map((r) => {
+        const learned = learnedMap.get(r.productId as string)
+        return {
+          ...r,
+          productId: r.productId as string,
+          name: r.name ?? 'Unknown',
+          stockUnit: r.stockUnit ?? '',
+          category: r.category ?? 'General',
+          quantity: parseFloat(r.quantity ?? '0'),
+          learnedPerGuestStock: learned?.perGuestStock ?? null,
+          learnedConfidence: learned?.confidence ?? null,
+          learnedSource: learned?.source ?? null,
+          learnedSampleSize: learned?.sampleSize ?? 0,
+        }
+      })
   })
 
 export const getRecentIssuances = createServerFn({ method: 'GET' })
   .inputValidator((branchId: string) => branchId)
-  .handler(async ({ data: branchId }): Promise<RecentIssuance[]> => {
+  .handler(async ({ data: branchId }): Promise<Array<RecentIssuance>> => {
     await getAuthContext()
 
     const rows = await db

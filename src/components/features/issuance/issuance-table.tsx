@@ -1,17 +1,19 @@
-import { useState, useEffect } from 'react'
-import { Package, ChevronLeft, ChevronRight } from 'lucide-react'
-import { DataTable, type ColumnDef } from '@/components/ui/data-table'
+import { useEffect, useState } from 'react'
+import { ChevronLeft, ChevronRight, Package } from 'lucide-react'
+import { QtyInput } from './qty-input'
+import type {IssuanceInventoryItem} from '@/stores/issuance-cart';
+import type {ColumnDef} from '@/components/ui/data-table';
+import {  DataTable } from '@/components/ui/data-table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { QtyInput } from './qty-input'
-import { useIssuanceCart, type IssuanceInventoryItem } from '@/stores/issuance-cart'
-import { formatQuantity, formatParPerGuest } from '@/lib/format'
+import {  useIssuanceCart } from '@/stores/issuance-cart'
+import { formatParPerGuest, formatQuantity } from '@/lib/format'
 import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
 
 const PAGE_SIZE = 10
 
 interface IssuanceTableProps {
-  inventory: IssuanceInventoryItem[]
+  inventory: Array<IssuanceInventoryItem>
 }
 
 export function IssuanceTable({ inventory }: IssuanceTableProps) {
@@ -22,7 +24,7 @@ export function IssuanceTable({ inventory }: IssuanceTableProps) {
     setPage(1)
   }, [inventory])
 
-  const columns: ColumnDef<IssuanceInventoryItem>[] = [
+  const columns: Array<ColumnDef<IssuanceInventoryItem>> = [
     {
       key: 'item',
       header: 'Item Name',
@@ -71,11 +73,43 @@ export function IssuanceTable({ inventory }: IssuanceTableProps) {
       key: 'parPerGuest',
       header: 'Par/Guest',
       hideOnMobile: true,
-      render: (row) => (
-        <span className="text-sm text-muted-foreground">
-          {formatParPerGuest(row)}
-        </span>
-      ),
+      render: (row) => {
+        const configured = formatParPerGuest(row)
+        const learned = row.learnedPerGuestStock
+        // Only highlight the learned rate when it comes from real
+        // consumption (reconciliation / issuance). Static-par would just
+        // echo the configured value back, which is noisy.
+        const hasMeaningfulLearned =
+          learned !== null &&
+          row.learnedSource !== null &&
+          row.learnedSource !== 'static-par' &&
+          row.learnedSource !== 'none'
+
+        if (!hasMeaningfulLearned) {
+          return <span className="text-sm text-muted-foreground">{configured}</span>
+        }
+
+        const confidenceTone =
+          row.learnedConfidence === 'high'
+            ? 'text-emerald-700'
+            : row.learnedConfidence === 'medium'
+              ? 'text-blue-700'
+              : 'text-amber-700'
+
+        return (
+          <div className="flex flex-col leading-tight">
+            <span className={`text-sm font-medium ${confidenceTone}`}>
+              {formatQuantity(learned)} {row.stockUnit}
+              <span className="ml-1 text-[10px] uppercase tracking-wide opacity-70">
+                {row.learnedConfidence}
+              </span>
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              configured: {configured}
+            </span>
+          </div>
+        )
+      },
     },
     {
       key: 'qtyToDeduct',

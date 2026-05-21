@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import {
   listMenusOptions,
   getMenuWithDishesOptions,
+  getMenuReconciliationStatsOptions,
 } from '@/lib/query-manager/menus/options'
 import { menuKeys, type MenuListParams } from '@/lib/query-manager/menus/keys'
 import {
@@ -23,6 +24,10 @@ export function useMenus(params: Omit<MenuListParams, 'branchId'> = {}) {
 
 export function useMenu(menuId: string) {
   return useQuery(getMenuWithDishesOptions(menuId))
+}
+
+export function useMenuReconciliationStats(menuId: string) {
+  return useQuery(getMenuReconciliationStatsOptions(menuId))
 }
 
 export function useCreateMenu() {

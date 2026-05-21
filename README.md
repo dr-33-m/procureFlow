@@ -6,11 +6,13 @@ A procurement operations platform built for F&B and hospitality teams. procureFl
 
 | Module | Description |
 |--------|-------------|
-| **Shopping Lists** | Create and manage procurement lists with product quantities, prices, and per-item supplier assignments. Supports AI-assisted draft generation from par levels and purchase history. |
+| **Shopping Lists** | Create and manage procurement lists with product quantities, prices, and per-item supplier assignments. AI assistant drafts lists from **learned per-guest rates** (from real reconciliations) before falling back to issuance history or static par. |
 | **Runner Mode** | Mobile-optimized view for runners to mark items as found/partial/not found, log purchased quantities and prices, and scan barcodes |
-| **Receiving** | Managers verify incoming deliveries by counting received items against what was ordered and purchased; items are approved into pantry stock |
+| **Receiving** | Managers verify incoming deliveries by counting received items against what was ordered and purchased; items are approved into pantry stock. An optional best-before date inserts a tracked `product_batch` so the system can FIFO-consume and flag expiring stock. |
 | **Pantry** | Live inventory of all stocked products with current quantities, units, and stock movement history |
-| **Issuance** | Deduct stock from the pantry for kitchen or operational use; supports pack/single unit toggling and logs all transactions |
+| **Menus** | Structured meal definitions (breakfast / lunch / dinner / drinks / event) with dishes and per-serving recipes. Recipes are the *starting point* the AI uses to propose issuance; the **Recipe vs. Reality** panel shows how recent reconciliations have drifted from each recipe so chefs can revise. |
+| **Issuance** | Deduct stock from the pantry for kitchen use. The Par/Guest column shows the **learned per-guest rate** (when reconciliation data exists) alongside the configured par, with a confidence label. The AI Issuance assistant drafts a context-aware deduction (menu × guests × expiries × learned rates) that the manager approves into the deduction cart. |
+| **Kitchen** | Pending issued stock awaiting EOD reconciliation. Chef speaks naturally to the **Kitchen AI assistant** ("dinner was 38 guests but we plated 51 — lots of reorders"); the agent infers structured reason codes (reorder-uplift, expiry-driven, substitution, waste, etc.) and drafts the reconciliation for the chef to confirm. |
 | **Dashboard** | Overview of pending lists, recent activity, spend summaries, and stock alerts — owner and admin only |
 | **Company Settings** | Manage company details, subscription plan, branches, and team members across tabs |
 | **Profile Settings** | Update display name, username, avatar, email, and password via Logto Account Center API |
@@ -23,7 +25,7 @@ procureFlow uses four roles with distinct access boundaries enforced at the rout
 |------|--------|
 | **Owner** | Full access to all modules, company settings, plan management, branch management, and member invites |
 | **Admin** | All modules except plan management; can manage members and branches |
-| **Chef** | Shopping lists (create, edit, generate), pantry, and issuance |
+| **Chef** | Shopping lists (create, edit, generate), pantry, menus, issuance, and kitchen reconciliation |
 | **Runner** | Shopping lists assigned to them only — runner mode view |
 
 Route guards (`beforeLoad`) redirect unauthorised roles before pages render. Server functions enforce `requireRole()` independently so the data layer is always protected regardless of client state.
@@ -163,27 +165,49 @@ Subsequent sign-ins sync the user's name and avatar from Logto and resolve their
 ## Procurement Workflow
 
 ```
-Shopping List Created
+Shopping List Created  ◄────────────────────────┐
+        │                                       │
+        ▼                                       │
+   [ pending ]                                  │
+        │  Assigned to runner                   │
+        ▼                                       │
+  [ shopping ]                                  │
+        │  Runner marks all items               │
+        ▼                                       │
+  [ in_review ]                                 │
+        │  Manager opens Receiving page         │
+        │  Counts items; optional best-before   │
+        ▼                                       │
+ [ completed ]                                  │
+        │  Items added to Pantry                │
+        ▼                                       │
+    Pantry Stock                                │
+        │  Issuance (manual or AI-proposed)     │
+        │  → FIFO decrement of product_batches  │
+        ▼                                       │
+    Kitchen Stock                               │
+        │  EOD reconciliation (chef + AI)       │
+        │  → structured reason codes + notes    │
+        ▼                                       │
+   Reconciliation                               │
+        │                                       │
+        │  Updates learned per-guest rates ─────┘
+        │  (segmented by mealType / eventTag,
+        │   noise reasons excluded, 30-day half-life)
         │
         ▼
-   [ pending ]
-        │  Assigned to runner
-        ▼
-  [ shopping ]
-        │  Runner marks all items
-        ▼
-  [ in_review ]
-        │  Manager opens Receiving page
-        │  Counts items, confirms each row
-        ▼
- [ completed ]
-        │  Items added to Pantry
-        ▼
-    Pantry Stock
-        │  Issuance deductions
-        ▼
-  Transaction Log
+  Next planning run is sharper
 ```
+
+### The learning loop
+
+Per-guest demand is **computed**, not configured. The shopping-list and issuance agents both read from `getLearnedPerGuest()`, which prefers:
+
+1. **Reconciliation rows** (truth) — time-decayed, segmented by mealType/eventTag, with `waste-spoilage`/`training`/`expiry-driven` excluded.
+2. **Issuance rows** (plan-only, cold-start fallback) — manager intent, not realised consumption.
+3. **Static `parPerGuest`** — what the product was originally configured at.
+
+Each call returns a `confidence` and `source` so the agent can cite *why* a number is what it is — and the chef can challenge it.
 
 ### Receiving Item Statuses
 

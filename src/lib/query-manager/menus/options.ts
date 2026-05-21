@@ -1,4 +1,9 @@
-import { listMenus, getMenuWithDishes, getRecentMenuActivity } from '@/server/menus'
+import {
+  listMenus,
+  getMenuWithDishes,
+  getRecentMenuActivity,
+  getMenuReconciliationStats,
+} from '@/server/menus'
 import { menuKeys, type MenuListParams } from './keys'
 
 export function listMenusOptions(params: MenuListParams) {
@@ -25,5 +30,14 @@ export function getRecentMenuActivityOptions(branchId: string) {
     queryFn: () => getRecentMenuActivity({ data: branchId }),
     staleTime: 60_000,
     enabled: !!branchId,
+  }
+}
+
+export function getMenuReconciliationStatsOptions(menuId: string) {
+  return {
+    queryKey: menuKeys.reconciliationStats(menuId),
+    queryFn: () => getMenuReconciliationStats({ data: menuId }),
+    staleTime: 30_000,
+    enabled: !!menuId,
   }
 }

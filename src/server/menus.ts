@@ -1,7 +1,10 @@
 import { createServerFn } from '@tanstack/react-start'
-import { db, menus, dishes, dishIngredients, products } from '@/db'
-import { eq, and, asc, desc } from 'drizzle-orm'
+import { and, asc, desc, eq } from 'drizzle-orm'
+import type {ProductPricing} from '@/server/lib/pricing';
+import { db, dishIngredients, dishes, menus, products } from '@/db'
 import { getAuthContext, requireRole, validateBranchAccess } from '@/server/auth/context'
+import { getLearnedPerGuest } from '@/server/lib/learned-par'
+import {  toStockQty } from '@/server/lib/pricing'
 
 type MealType = 'breakfast' | 'lunch' | 'dinner' | 'drinks' | 'event'
 
@@ -299,6 +302,129 @@ export const setDishIngredients = createServerFn({ method: 'POST' })
       .returning({ id: dishIngredients.id })
 
     return { ok: true, count: inserted.length }
+  })
+
+// ─── Per-dish reconciliation history (recipe vs reality, by ingredient) ─────
+
+// For each ingredient on the menu, compute the configured per-guest amount
+// (recipe quantityPerServing × dish defaultServingsPerGuest, in stock units)
+// and the learned per-guest amount (from kitchen reconciliations, segmented
+// by this menu's mealType + eventTag). Surfaces drift between recipe and
+// reality — the load-bearing signal for whether to revise the recipe.
+export const getMenuReconciliationStats = createServerFn({ method: 'GET' })
+  .inputValidator((menuId: string) => menuId)
+  .handler(async ({ data: menuId }) => {
+    const ctx = await getAuthContext()
+
+    const [menu] = await db.select().from(menus).where(eq(menus.id, menuId)).limit(1)
+    if (!menu) throw new Error('Menu not found')
+    await validateBranchAccess(ctx, menu.branchId)
+
+    const ingredientRows = await db
+      .select({
+        dishId: dishIngredients.dishId,
+        dishName: dishes.name,
+        defaultServingsPerGuest: dishes.defaultServingsPerGuest,
+        productId: dishIngredients.productId,
+        productName: products.name,
+        quantityPerServing: dishIngredients.quantityPerServing,
+        unit: dishIngredients.unit,
+        stockUnit: products.stockUnit,
+        purchaseUnit: products.purchaseUnit,
+        purchasePackSize: products.purchasePackSize,
+        purchasePrice: products.purchasePrice,
+        baseUnit: products.baseUnit,
+        baseUnitsPerStock: products.baseUnitsPerStock,
+        servingUnit: products.servingUnit,
+        servingSize: products.servingSize,
+      })
+      .from(dishIngredients)
+      .innerJoin(dishes, eq(dishes.id, dishIngredients.dishId))
+      .innerJoin(products, eq(products.id, dishIngredients.productId))
+      .where(eq(dishes.menuId, menuId))
+
+    if (ingredientRows.length === 0) return { menuId, dishes: [] }
+
+    const productIds = Array.from(new Set(ingredientRows.map((r) => r.productId)))
+    const learnedRates = await getLearnedPerGuest({
+      branchId: menu.branchId,
+      productIds,
+      mealType: menu.mealType,
+      eventTag: menu.eventTag ?? undefined,
+    })
+    const learnedMap = new Map(learnedRates.map((l) => [l.productId, l]))
+
+    type IngredientStat = {
+      productId: string
+      productName: string
+      stockUnit: string
+      configuredPerGuestStock: number
+      learnedPerGuestStock: number | null
+      deltaPct: number | null
+      confidence: 'low' | 'medium' | 'high' | null
+      sampleSize: number
+      source: 'reconciliation' | 'issuance' | 'static-par' | 'none'
+    }
+    const byDish = new Map<
+      string,
+      { dishId: string; dishName: string; ingredients: Array<IngredientStat> }
+    >()
+
+    for (const row of ingredientRows) {
+      const pricing: ProductPricing = {
+        stockUnit: row.stockUnit,
+        purchaseUnit: row.purchaseUnit,
+        purchasePackSize: row.purchasePackSize,
+        purchasePrice: row.purchasePrice,
+        baseUnit: row.baseUnit,
+        baseUnitsPerStock: row.baseUnitsPerStock,
+        servingUnit: row.servingUnit,
+        servingSize: row.servingSize,
+      }
+      const qtyPerServingStock = toStockQty(
+        parseFloat(row.quantityPerServing),
+        row.unit as 'stock' | 'base' | 'serving',
+        pricing,
+      )
+      const servingsPerGuest = parseFloat(row.defaultServingsPerGuest)
+      const configuredPerGuestStock = qtyPerServingStock * servingsPerGuest
+
+      const learned = learnedMap.get(row.productId)
+      const learnedPerGuestStock = learned?.perGuestStock ?? null
+      const deltaPct =
+        learnedPerGuestStock !== null && configuredPerGuestStock > 0
+          ? Math.round(
+              ((learnedPerGuestStock - configuredPerGuestStock) / configuredPerGuestStock) *
+                100,
+            )
+          : null
+
+      if (!byDish.has(row.dishId)) {
+        byDish.set(row.dishId, {
+          dishId: row.dishId,
+          dishName: row.dishName,
+          ingredients: [],
+        })
+      }
+      byDish.get(row.dishId)!.ingredients.push({
+        productId: row.productId,
+        productName: row.productName,
+        stockUnit: row.stockUnit,
+        configuredPerGuestStock,
+        learnedPerGuestStock,
+        deltaPct,
+        confidence: learned?.confidence ?? null,
+        sampleSize: learned?.sampleSize ?? 0,
+        source: learned?.source ?? 'none',
+      })
+    }
+
+    return {
+      menuId,
+      mealType: menu.mealType,
+      eventTag: menu.eventTag,
+      dishes: Array.from(byDish.values()),
+    }
   })
 
 // ─── Most-recent-activity helper (for the menu list page) ───────────────────

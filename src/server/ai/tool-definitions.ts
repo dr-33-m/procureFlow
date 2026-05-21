@@ -71,11 +71,25 @@ export const getPreviousListsDef = toolDefinition({
 export const computeItemRestockDef = toolDefinition({
   name: 'compute_item_restock',
   description:
-    'Compute a statistical restock suggestion for a specific product based on historical consumption and par levels. Returns suggested quantity, urgency, data source (history or par), and safety stock.',
+    'Compute a restock suggestion for a specific product. Reads the learned per-guest rate (from kitchen reconciliations when available, falling back to issuance history, then static par). Returns suggested quantity, urgency, data source, confidence, and safety stock buffer.',
   inputSchema: z.object({
     productId: z.string().meta({ description: 'The product ID to compute restock for' }),
     expectedGuestCount: z.number().meta({ description: 'Total expected guests for the period' }),
     periodDays: z.number().meta({ description: 'Number of days in the procurement period' }),
+    mealType: z
+      .enum(['breakfast', 'lunch', 'dinner', 'drinks', 'event'])
+      .optional()
+      .meta({
+        description:
+          'Optional meal type — segments the learned rate so e.g. dinner data does not pollute breakfast estimates.',
+      }),
+    eventTag: z
+      .string()
+      .optional()
+      .meta({
+        description:
+          'Optional event tag (e.g. "wedding", "conference") — further segments the learned rate when the period is a special event.',
+      }),
   }),
 })
 

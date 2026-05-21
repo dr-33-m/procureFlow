@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { useNavigate } from '@tanstack/react-router'
-import { Trash2, Plus, ChevronRight, Users, Sparkles, Loader2, AlertTriangle, Clock, CheckCircle2, Bot } from 'lucide-react'
+import { getRouteApi, useNavigate } from '@tanstack/react-router'
+import { Trash2, Plus, ChevronRight, Users, AlertTriangle, Clock, CheckCircle2 } from 'lucide-react'
 import { AppLayout } from '@/components/layout/app-layout'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
@@ -17,12 +17,13 @@ import {
   useProductsWithStock,
   useRunners,
   useCreateShoppingList,
-  useRestockSuggestions,
 } from '@/hooks/use-shopping-lists'
 import { AIAssistantDrawer } from './ai-assistant-drawer'
 import { formatCurrencyFull, formatQuantity } from '@/lib/format'
 import { pricePerStockUnit } from '@/server/lib/pricing'
-import type { ProductWithStock, RestockSuggestion } from '@/types'
+import type { ProductWithStock } from '@/types'
+
+const routeApi = getRouteApi('/shopping-lists/create')
 
 // Days per period type (used for math and lookback selection)
 const PERIOD_DAYS: Record<string, number> = {
@@ -54,22 +55,12 @@ const URGENCY_CONFIG = {
   ok: { label: 'OK', icon: CheckCircle2, className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' },
 }
 
-const URGENCY_ORDER: Record<string, number> = { critical: 0, soon: 1, ok: 2 }
-
-function sortByUrgency(items: LineItem[]): LineItem[] {
-  return [...items].sort((a, b) => {
-    const ua = URGENCY_ORDER[a.urgency ?? 'ok'] ?? 2
-    const ub = URGENCY_ORDER[b.urgency ?? 'ok'] ?? 2
-    return ua - ub
-  })
-}
-
 export function CreateListPage() {
   const navigate = useNavigate()
+  const { ai: aiParam } = routeApi.useSearch()
   const { data: runners = [] } = useRunners()
   const { data: catalogWithStock = [] } = useProductsWithStock()
   const createMutation = useCreateShoppingList()
-  const suggestMutation = useRestockSuggestions()
 
   const [listName, setListName] = useState('')
   const [assignedTo, setAssignedTo] = useState<string>('')
@@ -83,7 +74,8 @@ export function CreateListPage() {
 
   const [items, setItems] = useState<LineItem[]>([])
   const [searchQuery, setSearchQuery] = useState('')
-  const [aiDrawerOpen, setAiDrawerOpen] = useState(false)
+  // Auto-open the AI drawer when the user arrived here via "Create List with AI".
+  const [aiDrawerOpen, setAiDrawerOpen] = useState(aiParam === true)
 
   const periodDays = periodType === 'event' ? (Number(customPeriodDays) || 7) : PERIOD_DAYS[periodType]
   const expectedGuestCount =
@@ -111,38 +103,6 @@ export function CreateListPage() {
       },
     ])
     setSearchQuery('')
-  }
-
-  const handleSuggest = () => {
-    if (!expectedGuestCount) return
-    suggestMutation.mutate(
-      { expectedGuestCount, periodDays, periodType },
-      {
-        onSuccess: (suggestions: RestockSuggestion[]) => {
-          const alreadyAdded = new Set(items.map((i) => i.productId))
-          const newItems: LineItem[] = suggestions
-            .filter((s) => !alreadyAdded.has(s.productId) && s.suggestedQty > 0)
-            .map((s) => ({
-              productId: s.productId,
-              productName: s.productName,
-              quantity: s.purchaseUnit
-                ? Math.ceil(s.suggestedQty / (parseFloat(s.purchasePackSize ?? '1') || 1))
-                : s.suggestedQty,
-              quantityUnit: s.purchaseUnit ? 'purchase' : 'stock',
-              stockUnit: s.stockUnit,
-              purchaseUnit: s.purchaseUnit ?? null,
-              purchasePackSize: s.purchasePackSize ?? null,
-              pricePerStockUnit: s.pricePerStockUnit ?? 0,
-              currentStock: s.onHand,
-              urgency: s.urgency,
-              source: s.source,
-              sampleSize: s.sampleSize,
-              onHand: s.onHand,
-            }))
-          setItems((prev) => sortByUrgency([...prev, ...newItems]))
-        },
-      },
-    )
   }
 
   const removeItem = (productId: string) => {
@@ -205,8 +165,6 @@ export function CreateListPage() {
       onSuccess: () => navigate({ to: '/shopping-lists', search: { filter: undefined } }),
     })
   }
-
-  const canSuggest = Boolean(expectedGuestCount) && catalogWithStock.length > 0
 
   return (
     <AppLayout>
@@ -362,35 +320,6 @@ export function CreateListPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-4 pt-1 border-t">
-            <p className="text-xs text-muted-foreground">
-              {canSuggest
-                ? `Suggest items using consumption history and par levels for ${periodDays} days / ${expectedGuestCount?.toLocaleString()} guest-meals`
-                : 'Fill in the forecast period above to generate suggestions'}
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                className="shrink-0 gap-2"
-                onClick={() => setAiDrawerOpen(true)}
-              >
-                <Bot className="h-4 w-4" />
-                AI Assistant
-              </Button>
-              <Button
-                className="shrink-0 gap-2"
-                onClick={handleSuggest}
-                disabled={!canSuggest || suggestMutation.isPending}
-              >
-                {suggestMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4" />
-                )}
-                {suggestMutation.isPending ? 'Generating…' : 'Suggest Items'}
-              </Button>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -421,7 +350,7 @@ export function CreateListPage() {
           <div className="px-5 py-10 text-center">
             <p className="text-sm font-medium text-muted-foreground">No items yet</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Click Suggest Items above, or search and add items manually below.
+              Search and add items below, or use the AI assistant.
             </p>
           </div>
         )}

@@ -1,24 +1,26 @@
+import { and, desc, eq, gte, ilike, inArray, isNotNull, sql } from 'drizzle-orm'
+import { DEFAULT_LOOKBACK, HOTEL_DEFAULT_LEAD_TIME } from './constants'
 import {
-  db,
-  products,
-  inventory,
-  inventoryTransactions,
-  shoppingLists,
-  shoppingListItems,
-  productSuppliers,
-} from '@/db'
-import { eq, and, desc, sql, isNotNull, gte, inArray, ilike } from 'drizzle-orm'
-import { pricePerStockUnit, purchasePackSizeOrOne, type ProductPricing } from '@/server/lib/pricing'
-import { DEFAULT_LOOKBACK, HOTEL_DEFAULT_LEAD_TIME, Z_95 } from './constants'
-import {
-  getPantryStockDef,
-  getConsumptionHistoryDef,
-  getProductCatalogDef,
-  getOpenOrdersDef,
-  getPreviousListsDef,
   computeItemRestockDef,
   generateShoppingListDef,
+  getConsumptionHistoryDef,
+  getOpenOrdersDef,
+  getPantryStockDef,
+  getPreviousListsDef,
+  getProductCatalogDef,
 } from './tool-definitions'
+import type {ProductPricing} from '@/server/lib/pricing';
+import {
+  db,
+  inventory,
+  inventoryTransactions,
+  productSuppliers,
+  products,
+  shoppingListItems,
+  shoppingLists,
+} from '@/db'
+import {  pricePerStockUnit, purchasePackSizeOrOne } from '@/server/lib/pricing'
+import { getLearnedPerGuest } from '@/server/lib/learned-par'
 
 export function createTools(branchId: string, userId?: string) {
   const getPantryStock = getPantryStockDef.server(async (args: unknown) => {
@@ -304,10 +306,12 @@ export function createTools(branchId: string, userId?: string) {
   })
 
   const computeItemRestock = computeItemRestockDef.server(async (args: unknown) => {
-    const { productId, expectedGuestCount, periodDays } = args as {
+    const { productId, expectedGuestCount, periodDays, mealType, eventTag } = args as {
       productId: string
       expectedGuestCount: number
       periodDays: number
+      mealType?: 'breakfast' | 'lunch' | 'dinner' | 'drinks' | 'event'
+      eventTag?: string
     }
 
     const [product] = await db
@@ -321,8 +325,6 @@ export function createTools(branchId: string, userId?: string) {
         purchasePrice: products.purchasePrice,
         baseUnit: products.baseUnit,
         baseUnitsPerStock: products.baseUnitsPerStock,
-        parPerGuest: products.parPerGuest,
-        parPerGuestUnit: products.parPerGuestUnit,
         servingUnit: products.servingUnit,
         servingSize: products.servingSize,
         leadTimeDays: products.leadTimeDays,
@@ -353,7 +355,6 @@ export function createTools(branchId: string, userId?: string) {
     const packSize = purchasePackSizeOrOne(pricing)
     const stockPrice = pricePerStockUnit(pricing)
 
-    // Check on-order
     const openStatuses = ['pending', 'shopping', 'in_review', 'on_hold']
     const openListIds = await db
       .select({ id: shoppingLists.id })
@@ -377,75 +378,39 @@ export function createTools(branchId: string, userId?: string) {
       onOrder = parseFloat(row?.qty ?? '0')
     }
 
-    // Get ISSUE transactions
-    const since = new Date(Date.now() - DEFAULT_LOOKBACK * 24 * 60 * 60 * 1000)
-    const txRows = await db
-      .select({
-        quantityStock: inventoryTransactions.quantityStock,
-        guestCount: inventoryTransactions.guestCount,
-      })
-      .from(inventoryTransactions)
-      .where(
-        and(
-          eq(inventoryTransactions.branchId, branchId),
-          eq(inventoryTransactions.productId, productId),
-          eq(inventoryTransactions.type, 'ISSUE'),
-          isNotNull(inventoryTransactions.guestCount),
-          gte(inventoryTransactions.createdAt, since),
-        ),
-      )
+    const [learned] = await getLearnedPerGuest({
+      branchId,
+      productIds: [productId],
+      mealType,
+      eventTag,
+      lookbackDays: DEFAULT_LOOKBACK,
+    })
 
-    const samples = txRows
-      .filter((t) => t.guestCount)
-      .map((t) => ({
-        stockQty: Math.abs(parseFloat(t.quantityStock)),
-        guests: t.guestCount!,
-      }))
-
-    let ratePerGuest: number | null = null
-    let safetyStock = 0
-    let source: 'history' | 'par' | 'none' = 'none'
-
-    if (samples.length >= 3) {
-      const totalStock = samples.reduce((s, t) => s + t.stockQty, 0)
-      const totalGuests = samples.reduce((s, t) => s + t.guests, 0)
-      ratePerGuest = totalGuests > 0 ? totalStock / totalGuests : 0
-      source = 'history'
-
-      const rates = samples.map((t) => t.stockQty / t.guests)
-      const mean = rates.reduce((s, r) => s + r, 0) / rates.length
-      const variance = rates.reduce((s, r) => s + (r - mean) ** 2, 0) / rates.length
-      safetyStock = Z_95 * Math.sqrt(variance) * Math.sqrt(expectedGuestCount)
-    } else if (product.parPerGuest) {
-      let parInStock = parseFloat(product.parPerGuest)
-      if (
-        product.parPerGuestUnit === 'serving' &&
-        product.servingSize &&
-        product.baseUnitsPerStock
-      ) {
-        parInStock =
-          (parInStock * parseFloat(product.servingSize)) /
-          parseFloat(product.baseUnitsPerStock)
-      } else if (product.parPerGuestUnit === 'base' && product.baseUnitsPerStock) {
-        parInStock = parInStock / parseFloat(product.baseUnitsPerStock)
-      }
-      ratePerGuest = parInStock
-      source = 'par'
-    }
-
-    if (ratePerGuest === null) {
+    if (!learned || learned.perGuestStock === null) {
       return {
         productName: product.name,
         category: product.category,
         stockUnit: product.stockUnit,
         onHand,
         onOrder,
-        source: 'none',
-        message: 'No consumption history or par level defined for this product',
+        source: 'none' as const,
+        confidence: 'low' as const,
+        sampleCount: 0,
+        message: 'No reconciliation history, issuance history, or par level defined.',
       }
     }
 
+    const ratePerGuest = learned.perGuestStock
     const needed = ratePerGuest * expectedGuestCount
+
+    // Confidence-based safety buffer (replaces the variance calculation,
+    // which isn't easily derivable from the learned-rate helper). Low
+    // confidence = wider buffer to absorb the unknown; high confidence =
+    // tight buffer because the data has converged.
+    const bufferPct =
+      learned.confidence === 'high' ? 0.05 : learned.confidence === 'medium' ? 0.1 : 0.2
+    const safetyStock = needed * bufferPct
+
     const shortfall = Math.max(0, needed + safetyStock - onHand - onOrder)
     const suggestedQty =
       packSize > 1 ? Math.ceil(shortfall / packSize) * packSize : Math.ceil(shortfall)
@@ -470,8 +435,9 @@ export function createTools(branchId: string, userId?: string) {
       pricePerStockUnit: stockPrice,
       estimatedCost: Math.round(suggestedQty * stockPrice * 100) / 100,
       urgency,
-      source,
-      sampleCount: samples.length,
+      source: learned.source,
+      confidence: learned.confidence,
+      sampleCount: learned.sampleSize,
       coverDays: isFinite(coverDays) ? Math.round(coverDays * 10) / 10 : null,
     }
   })

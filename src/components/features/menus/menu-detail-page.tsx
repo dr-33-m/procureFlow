@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { MenuFormDialog } from './menu-form-dialog'
 import { DishEditor } from './dish-editor'
+import { DishReconciliationPanel } from './dish-reconciliation-panel'
 import { useMenu, useCreateDish, useDeleteMenu } from '@/hooks/use-menus'
 import { usePermissions } from '@/hooks/use-permissions'
 
@@ -110,6 +111,8 @@ export function MenuDetailPage() {
             ) : undefined
           }
         />
+
+        <DishReconciliationPanel menuId={menu.id} />
 
         <div className="space-y-3">
           {dishes.length === 0 && !showNewDishInput && (
