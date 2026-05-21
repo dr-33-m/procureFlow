@@ -42,7 +42,7 @@ export function useAIShopping(editorContext?: EditorContext) {
   } = useChat({
     connection: connectionRef.current,
     onError: (err) => {
-      toast.error(err instanceof Error ? err.message : 'AI assistant encountered an error')
+      toast.error(err instanceof Error ? err.message : 'Procly encountered an error')
     },
   })
 

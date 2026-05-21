@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import type { UIMessage } from '@tanstack/ai-react'
 import {
-  Sparkles,
+  EggFried,
   Send,
   Loader2,
   Package,
@@ -30,7 +30,7 @@ const TOOL_DISPLAY: Record<string, { label: string; icon: typeof Package }> = {
   get_open_orders: { label: 'Checked open orders', icon: ShoppingCart },
   get_previous_lists: { label: 'Reviewed previous lists', icon: ClipboardList },
   compute_item_restock: { label: 'Computed restock suggestion', icon: Calculator },
-  generate_shopping_list: { label: 'Generated shopping list', icon: Sparkles },
+  generate_shopping_list: { label: 'Generated shopping list', icon: EggFried },
 }
 
 // ─── Quick Prompts ───────────────────────────────────────────────────────────
@@ -194,10 +194,10 @@ function EmptyState({ onQuickPrompt }: { onQuickPrompt: (prompt: string) => void
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 px-4 text-center">
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-        <Sparkles className="h-6 w-6 text-primary" />
+        <EggFried className="h-6 w-6 text-primary" />
       </div>
       <div>
-        <h3 className="text-sm font-semibold">AI Shopping Assistant</h3>
+        <h3 className="text-sm font-semibold">Procly · Shopping</h3>
         <p className="mt-1 text-xs text-muted-foreground">
           I can help you generate smart shopping lists based on your pantry levels, guest count,
           meal plans, and historical consumption.

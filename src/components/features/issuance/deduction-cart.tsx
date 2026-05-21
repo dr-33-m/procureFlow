@@ -7,7 +7,7 @@ import {
   Loader2,
   Plus,
   Users,
-  Sparkles,
+  EggFried,
   ChevronDown,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -130,7 +130,7 @@ export function DeductionCart() {
       {aiProposal && (
         <div className="border-b bg-primary/5 px-4 py-2">
           <div className="flex items-start gap-2">
-            <Sparkles className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
+            <EggFried className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium leading-tight">{aiProposal.summary}</p>
               <button

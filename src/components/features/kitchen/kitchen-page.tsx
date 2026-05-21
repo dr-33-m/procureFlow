@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Sparkles, History, Clock } from 'lucide-react'
+import { EggFried, History, Clock } from 'lucide-react'
 import { AppLayout } from '@/components/layout/app-layout'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
@@ -35,8 +35,8 @@ export function KitchenPage() {
           actions={
             canReconcileKitchen ? (
               <Button className="gap-2" onClick={() => setAIOpen(true)}>
-                <Sparkles className="h-4 w-4" />
-                Reconcile with AI
+                <EggFried className="h-4 w-4" />
+                Reconcile with Procly
               </Button>
             ) : undefined
           }

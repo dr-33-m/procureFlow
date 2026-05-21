@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { getRouteApi, Link } from '@tanstack/react-router'
-import { ExternalLink, Sparkles, TrendingUp } from 'lucide-react'
+import { ExternalLink, EggFried, TrendingUp } from 'lucide-react'
 import { AppLayout } from '@/components/layout/app-layout'
 import { Button } from '@/components/ui/button'
 import { IssuanceFilters } from './issuance-filters'
@@ -63,8 +63,8 @@ export function IssuancePage() {
               className="gap-2"
               onClick={() => setAIOpen(true)}
             >
-              <Sparkles className="h-3.5 w-3.5" />
-              AI Assistant
+              <EggFried className="h-3.5 w-3.5" />
+              Issue with Procly
             </Button>
           )}
           <Link to="/issuance/activity" search={{ page: 1 }}>

@@ -1,4 +1,4 @@
-import { Sparkles } from 'lucide-react'
+import { EggFried } from 'lucide-react'
 import {
   Sheet,
   SheetContent,
@@ -33,10 +33,10 @@ export function AIIssuanceDrawer({
         <SheetHeader className="flex-row items-center justify-between border-b px-4 py-3">
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10">
-              <Sparkles className="h-4 w-4 text-primary" />
+              <EggFried className="h-4 w-4 text-primary" />
             </div>
             <div>
-              <SheetTitle className="text-sm">Issuance Assistant</SheetTitle>
+              <SheetTitle className="text-sm">Procly · Issuance</SheetTitle>
               <SheetDescription className="text-xs">
                 Menu-driven, context-aware proposals
               </SheetDescription>

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import type { UIMessage } from '@tanstack/ai-react'
 import {
-  Sparkles,
+  EggFried,
   Send,
   Loader2,
   Package,
@@ -139,9 +139,9 @@ export function AIKitchenChat({
           <div className="space-y-3 pt-4">
             <div className="flex flex-col items-center text-center px-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 mb-3">
-                <Sparkles className="h-6 w-6 text-primary" />
+                <EggFried className="h-6 w-6 text-primary" />
               </div>
-              <p className="text-sm font-medium">Kitchen Reconciliation</p>
+              <p className="text-sm font-medium">Procly · Kitchen</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 Tell me about the service — how many guests, how many servings, what got
                 used, wasted, or left over. I'll draft the reconciliation; you confirm.
@@ -187,7 +187,7 @@ export function AIKitchenChat({
                 .map((tc) => {
                   const display = TOOL_DISPLAY[tc.name] ?? {
                     label: tc.name.replace(/_/g, ' '),
-                    icon: Sparkles,
+                    icon: EggFried,
                   }
                   const Icon = display.icon
                   const isDone =

@@ -74,7 +74,7 @@ export function CreateListPage() {
 
   const [items, setItems] = useState<LineItem[]>([])
   const [searchQuery, setSearchQuery] = useState('')
-  // Auto-open the AI drawer when the user arrived here via "Create List with AI".
+  // Auto-open Procly when the user arrived here via "Create List with Procly".
   const [aiDrawerOpen, setAiDrawerOpen] = useState(aiParam === true)
 
   const periodDays = periodType === 'event' ? (Number(customPeriodDays) || 7) : PERIOD_DAYS[periodType]
@@ -350,7 +350,7 @@ export function CreateListPage() {
           <div className="px-5 py-10 text-center">
             <p className="text-sm font-medium text-muted-foreground">No items yet</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Search and add items below, or use the AI assistant.
+              Search and add items below, or use Procly.
             </p>
           </div>
         )}

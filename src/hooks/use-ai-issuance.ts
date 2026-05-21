@@ -38,7 +38,7 @@ export function useAIIssuance(planningContext?: IssuancePlanningContext) {
   } = useChat({
     connection: connectionRef.current,
     onError: (err) => {
-      toast.error(err instanceof Error ? err.message : 'Issuance assistant error')
+      toast.error(err instanceof Error ? err.message : 'Procly error')
     },
   })
 

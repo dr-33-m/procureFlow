@@ -6,7 +6,7 @@ import {
   Plus,
   ClipboardList,
   ChevronRight,
-  Sparkles,
+  EggFried,
 } from 'lucide-react'
 import { AppLayout } from '@/components/layout/app-layout'
 import { DataTable, type ColumnDef } from '@/components/ui/data-table'
@@ -177,10 +177,10 @@ export function DashboardPage() {
             className="flex items-center gap-3 rounded-lg bg-card p-3 hover:bg-accent transition-colors"
           >
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-600">
-              <Sparkles className="h-4 w-4 text-white" />
+              <EggFried className="h-4 w-4 text-white" />
             </div>
             <div className="text-left">
-              <span className="block font-semibold">Create List with AI</span>
+              <span className="block font-semibold">Create List with Procly</span>
               <span className="text-xs text-muted-foreground">
                 Generate from learned rates &amp; menus
               </span>
