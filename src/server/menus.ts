@@ -363,7 +363,7 @@ export const getMenuReconciliationStats = createServerFn({ method: 'GET' })
       deltaPct: number | null
       confidence: 'low' | 'medium' | 'high' | null
       sampleSize: number
-      source: 'reconciliation' | 'issuance' | 'static-par' | 'none'
+      source: 'reconciliation' | 'issuance' | 'static-par' | 'recipe-derived' | 'none'
     }
     const byDish = new Map<
       string,

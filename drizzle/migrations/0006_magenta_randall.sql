@@ -1,0 +1,1 @@
+ALTER TABLE "products" ADD COLUMN "par_source" text DEFAULT 'manual';

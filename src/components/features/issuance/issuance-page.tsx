@@ -57,6 +57,12 @@ export function IssuancePage() {
           </p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
+          <Link to="/issuance/activity" search={{ page: 1 }}>
+            <Button variant="outline" size="sm" className="gap-2">
+              <ExternalLink className="h-3.5 w-3.5" />
+              View All Activity
+            </Button>
+          </Link>
           {canIssueStock && (
             <Button
               size="sm"
@@ -67,12 +73,6 @@ export function IssuancePage() {
               Issue with Procly
             </Button>
           )}
-          <Link to="/issuance/activity" search={{ page: 1 }}>
-            <Button variant="outline" size="sm" className="gap-2">
-              <ExternalLink className="h-3.5 w-3.5" />
-              View All Activity
-            </Button>
-          </Link>
         </div>
       </div>
 

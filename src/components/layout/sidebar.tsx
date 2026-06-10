@@ -2,16 +2,16 @@ import { Link, useRouterState, useNavigate } from '@tanstack/react-router'
 import {
   LayoutDashboard,
   ShoppingCart,
-  ClipboardList,
-  Package,
-  PackagePlus,
+  ClipboardPaste,
+  ShelvingUnit,
+  ClipboardCopy,
   HelpCircle,
   LogOut,
   Plus,
   ChevronsUpDown,
   Building2,
   Settings,
-  ChefHat,
+  NotepadText,
   CookingPot,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -53,10 +53,10 @@ type NavItem = {
 const navItems: NavItem[] = [
   { label: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['owner', 'admin'] },
   { label: 'Shopping Lists', href: '/shopping-lists', icon: ShoppingCart },
-  { label: 'Receiving', href: '/receiving', icon: ClipboardList, roles: ['owner', 'admin'] },
-  { label: 'Pantry', href: '/pantry', icon: Package, roles: ['owner', 'admin', 'chef'] },
-  { label: 'Menus', href: '/menus', icon: ChefHat, roles: ['owner', 'admin', 'chef'] },
-  { label: 'Issuance', href: '/issuance', icon: PackagePlus, roles: ['owner', 'admin', 'chef'] },
+  { label: 'Receiving', href: '/receiving', icon: ClipboardCopy, roles: ['owner', 'admin'] },
+  { label: 'Pantry', href: '/pantry', icon: ShelvingUnit, roles: ['owner', 'admin', 'chef'] },
+  { label: 'Menus', href: '/menus', icon: NotepadText, roles: ['owner', 'admin', 'chef'] },
+  { label: 'Issuance', href: '/issuance', icon: ClipboardPaste, roles: ['owner', 'admin', 'chef'] },
   { label: 'Kitchen', href: '/kitchen', icon: CookingPot, roles: ['owner', 'admin', 'chef', 'runner'] },
 ]
 

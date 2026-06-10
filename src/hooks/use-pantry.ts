@@ -12,6 +12,7 @@ import {
   updateInventoryItem,
   deleteInventoryItem,
   createProduct,
+  createProductForIngredient,
   importInventoryFromCSV,
   createProductSupplier,
   deleteProductSupplier,
@@ -111,6 +112,24 @@ export function useCreateProduct() {
     },
     onError: () => {
       toast.error('Failed to create product')
+    },
+  })
+}
+
+// Inline "create new ingredient" from the recipe editor — mints a product so a
+// chef never has to leave the menu to add a missing ingredient.
+export function useCreateProductForIngredient() {
+  const queryClient = useQueryClient()
+  const branchId = useBranchContext((s) => s.activeBranchId)
+
+  return useMutation({
+    mutationFn: (data: Omit<Parameters<typeof createProductForIngredient>[0]['data'], 'branchId'>) =>
+      createProductForIngredient({ data: { ...data, branchId } }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: pantryKeys.all })
+    },
+    onError: (err: unknown) => {
+      toast.error(err instanceof Error ? err.message : 'Failed to create product')
     },
   })
 }

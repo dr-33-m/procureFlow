@@ -510,6 +510,7 @@ async function computeRestockSuggestions(
       baseUnitsPerStock: products.baseUnitsPerStock,
       parPerGuest: products.parPerGuest,
       parPerGuestUnit: products.parPerGuestUnit,
+      parSource: products.parSource,
       servingUnit: products.servingUnit,
       servingSize: products.servingSize,
       leadTimeDays: products.leadTimeDays,
@@ -618,7 +619,7 @@ async function computeRestockSuggestions(
       }
       ratePerGuest = parInStock
       sampleSize = txSamples.length
-      source = 'par'
+      source = p.parSource === 'recipe-derived' ? 'recipe-derived' : 'par'
     } else {
       continue
     }

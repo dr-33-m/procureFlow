@@ -1,18 +1,13 @@
 import { useState } from 'react'
-import { Download, Plus, Upload } from 'lucide-react'
+import { Download, NotepadText, Plus } from 'lucide-react'
 import { AppLayout } from '@/components/layout/app-layout'
 import { PageHeader } from '@/components/ui/page-header'
 import { StatCard } from '@/components/ui/stat-card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
 import { EditItemDialog } from './edit-item-dialog'
 import { AddItemDialog } from './add-item-dialog'
 import { ImportInventoryDialog } from './import-inventory-dialog'
+import { MenuToPantryWizard } from '@/components/features/onboarding/menu-to-pantry-wizard'
 import { InventoryFilters } from './inventory-filters'
 import { InventoryTable } from './inventory-table'
 import { usePantryStats } from '@/hooks/use-pantry'
@@ -26,6 +21,7 @@ export function PantryPage() {
   const [editingItem, setEditingItem] = useState<PantryItem | null>(null)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
+  const [genDialogOpen, setGenDialogOpen] = useState(false)
 
   const { data: stats } = usePantryStats()
   const { canEditInventory } = usePermissions()
@@ -39,7 +35,33 @@ export function PantryPage() {
           actions={
             canEditInventory ? (
               <>
-                <Tooltip>
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => setAddDialogOpen(true)}
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Item
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => setImportDialogOpen(true)}
+                >
+                  <Download className="h-4 w-4" />
+                  Import CSV
+                </Button>
+
+                <Button
+                  className="gap-2"
+                  onClick={() => setGenDialogOpen(true)}
+                >
+                  <NotepadText className="h-4 w-4" />
+                  Generate Items with Procly
+                </Button>
+
+                {/* <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="inline-flex">
                       <Button
@@ -48,7 +70,7 @@ export function PantryPage() {
                         disabled
                         tabIndex={-1}
                       >
-                        <Download className="h-4 w-4" />
+                        <Upload className="h-4 w-4" />
                         Export CSV
                         <Badge variant="secondary" className="ml-0.5 text-xs">
                           Soon
@@ -57,21 +79,7 @@ export function PantryPage() {
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>Coming Soon</TooltipContent>
-                </Tooltip>
-
-                <Button
-                  variant="outline"
-                  className="gap-2"
-                  onClick={() => setImportDialogOpen(true)}
-                >
-                  <Upload className="h-4 w-4" />
-                  Import CSV
-                </Button>
-
-                <Button className="gap-2" onClick={() => setAddDialogOpen(true)}>
-                  <Plus className="h-4 w-4" />
-                  Add Item
-                </Button>
+                </Tooltip> */}
               </>
             ) : undefined
           }
@@ -134,6 +142,11 @@ export function PantryPage() {
         <ImportInventoryDialog
           open={importDialogOpen}
           onClose={() => setImportDialogOpen(false)}
+        />
+
+        <MenuToPantryWizard
+          open={genDialogOpen}
+          onClose={() => setGenDialogOpen(false)}
         />
       </>
     </AppLayout>

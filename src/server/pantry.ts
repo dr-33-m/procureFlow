@@ -5,6 +5,7 @@ import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
 import { pricePerStockUnit, toStockQty, type ProductPricing } from '@/server/lib/pricing'
 import { getAuthContext, requireRole } from '@/server/auth/context'
 import { checkTierLimit } from '@/server/tier-check'
+import { resolveOrCreateProduct } from '@/server/lib/resolve-product'
 import type { InventoryWithProduct, ProductSupplier } from '@/types'
 
 export const getPantryStats = createServerFn({ method: 'GET' })
@@ -648,4 +649,55 @@ export const importInventoryFromCSV = createServerFn({ method: 'POST' })
     }
 
     return { success: true, imported }
+  })
+
+// Inline create from the recipe editor's IngredientPicker: mint a product on the
+// fly so a chef never has to leave the menu to add a missing ingredient.
+export const createProductForIngredient = createServerFn({ method: 'POST' })
+  .inputValidator(
+    (data: {
+      branchId: string
+      name: string
+      category?: string
+      stockUnit: string
+      baseUnit?: string | null
+      baseUnitsPerStock?: number | null
+      servingUnit?: string | null
+      servingSize?: number | null
+    }) => data,
+  )
+  .handler(async ({ data }) => {
+    const ctx = await getAuthContext()
+    requireRole(ctx, 'owner', 'admin')
+
+    const limits = await checkTierLimit(ctx.companyId, 'products')
+    if (!limits.allowed) {
+      throw new Error(
+        `Product limit reached (${limits.current}/${limits.max}). Upgrade your plan to add more products.`,
+      )
+    }
+
+    const { productId } = await resolveOrCreateProduct(data.branchId, {
+      name: data.name,
+      category: data.category,
+      stockUnit: data.stockUnit,
+      baseUnit: data.baseUnit ?? null,
+      baseUnitsPerStock: data.baseUnitsPerStock ?? null,
+      servingUnit: data.servingUnit ?? null,
+      servingSize: data.servingSize ?? null,
+    })
+
+    const [product] = await db
+      .select({
+        id: products.id,
+        name: products.name,
+        stockUnit: products.stockUnit,
+        baseUnit: products.baseUnit,
+        servingUnit: products.servingUnit,
+      })
+      .from(products)
+      .where(eq(products.id, productId))
+      .limit(1)
+
+    return product
   })

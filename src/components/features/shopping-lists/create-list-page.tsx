@@ -44,7 +44,7 @@ interface LineItem {
   currentStock: number
   // suggestion metadata — present when added via server suggestion
   urgency?: 'critical' | 'soon' | 'ok'
-  source?: 'history' | 'par' | 'unknown'
+  source?: 'history' | 'par' | 'recipe-derived' | 'unknown'
   sampleSize?: number
   onHand?: number
 }
@@ -451,6 +451,13 @@ export function CreateListPage() {
                 ) : item.source === 'par' ? (
                   <span className="inline-flex items-center rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">
                     par
+                  </span>
+                ) : item.source === 'recipe-derived' ? (
+                  <span
+                    title="Estimated from your menu recipes — refines as kitchen reconciliations come in"
+                    className="inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"
+                  >
+                    recipe est.
                   </span>
                 ) : null}
               </div>

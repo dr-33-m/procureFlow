@@ -127,6 +127,11 @@ export const products = pgTable(
     // 'stock' | 'base' — the unit parPerGuest is expressed in (e.g. 'base' lets
     // you say "2 slices/guest" for a loaf-with-slices product).
     parPerGuestUnit: text('par_per_guest_unit').default('stock'),
+    // Provenance of parPerGuest so the UI can flag estimates rather than treat
+    // them as truth: 'manual' (hand-entered), 'csv' (imported), 'recipe-derived'
+    // (computed from menu recipes at onboarding — a low-confidence estimate that
+    // the learning loop overrides once reconciliation data arrives).
+    parSource: text('par_source').default('manual'),
     // Three-level packaging: PURCHASE (case/box) → STOCK (bottle/each) → BASE (ml/g).
     // stockUnit is the unit the kitchen physically issues at (e.g. loaf, bottle, kg).
     // Inventory and all transaction quantities are always in stockUnit. Convert

@@ -157,7 +157,7 @@ export type RestockSuggestion = {
   onHand: number
   onOrder: number
   urgency: 'critical' | 'soon' | 'ok'
-  source: 'history' | 'par' | 'unknown'
+  source: 'history' | 'par' | 'recipe-derived' | 'unknown'
   sampleSize: number
   ratePerGuest: number | null
   coverDays: number | null

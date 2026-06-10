@@ -32,7 +32,10 @@ export type LearnedPerGuest = {
   perGuestStock: number | null
   confidence: 'low' | 'medium' | 'high'
   sampleSize: number
-  source: 'reconciliation' | 'issuance' | 'static-par' | 'none'
+  // 'recipe-derived' is a static par seeded from menu recipes at onboarding —
+  // same confidence as 'static-par' but tagged distinctly so the UI can flag it
+  // as an estimate. Both are overridden by reconciliation/issuance data.
+  source: 'reconciliation' | 'issuance' | 'static-par' | 'recipe-derived' | 'none'
 }
 
 export async function getLearnedPerGuest(opts: {
@@ -65,6 +68,7 @@ export async function getLearnedPerGuest(opts: {
       servingSize: products.servingSize,
       parPerGuest: products.parPerGuest,
       parPerGuestUnit: products.parPerGuestUnit,
+      parSource: products.parSource,
     })
     .from(products)
     .where(and(eq(products.branchId, branchId), inArray(products.id, productIds)))
@@ -225,6 +229,11 @@ export async function getLearnedPerGuest(opts: {
       }
     }
 
+    // Tag par provenance so the UI can flag recipe-derived estimates distinctly
+    // from a manager's hand-entered par. Both stay confidence:'low'.
+    const parStaticSource =
+      product.parSource === 'recipe-derived' ? ('recipe-derived' as const) : ('static-par' as const)
+
     const parVal = parseFloat(product.parPerGuest)
     if (parVal <= 0) {
       return {
@@ -232,7 +241,7 @@ export async function getLearnedPerGuest(opts: {
         perGuestStock: 0,
         confidence: 'low' as const,
         sampleSize: 0,
-        source: 'static-par' as const,
+        source: parStaticSource,
       }
     }
 
@@ -253,7 +262,7 @@ export async function getLearnedPerGuest(opts: {
       perGuestStock,
       confidence: 'low' as const,
       sampleSize: 0,
-      source: 'static-par' as const,
+      source: parStaticSource,
     }
   })
 }

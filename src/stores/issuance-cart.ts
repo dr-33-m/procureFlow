@@ -17,7 +17,7 @@ export type IssuanceInventoryItem = {
   quantity: number
   learnedPerGuestStock: number | null
   learnedConfidence: 'low' | 'medium' | 'high' | null
-  learnedSource: 'reconciliation' | 'issuance' | 'static-par' | 'none' | null
+  learnedSource: 'reconciliation' | 'issuance' | 'static-par' | 'recipe-derived' | 'none' | null
   learnedSampleSize: number
 }
 

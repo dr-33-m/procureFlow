@@ -77,15 +77,29 @@ export function IssuanceTable({ inventory }: IssuanceTableProps) {
         const configured = formatParPerGuest(row)
         const learned = row.learnedPerGuestStock
         // Only highlight the learned rate when it comes from real
-        // consumption (reconciliation / issuance). Static-par would just
-        // echo the configured value back, which is noisy.
+        // consumption (reconciliation / issuance). Static-par and
+        // recipe-derived just echo the configured value back, which is noisy.
         const hasMeaningfulLearned =
           learned !== null &&
           row.learnedSource !== null &&
           row.learnedSource !== 'static-par' &&
+          row.learnedSource !== 'recipe-derived' &&
           row.learnedSource !== 'none'
 
         if (!hasMeaningfulLearned) {
+          // Recipe-derived par is a cold-start estimate, not a hand-entered or
+          // learned value — flag it so the manager treats it with caution until
+          // reconciliations refine it.
+          if (row.learnedSource === 'recipe-derived') {
+            return (
+              <div className="flex flex-col leading-tight">
+                <span className="text-sm text-amber-700">{configured}</span>
+                <span className="text-[10px] uppercase tracking-wide text-amber-600/80">
+                  recipe estimate
+                </span>
+              </div>
+            )
+          }
           return <span className="text-sm text-muted-foreground">{configured}</span>
         }
 
