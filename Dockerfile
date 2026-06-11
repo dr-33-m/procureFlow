@@ -1,4 +1,5 @@
 FROM node:24-slim AS base
+ENV CI=true
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # ── Stage 1: Install deps ───────────────────────────────────
