@@ -8,6 +8,7 @@ import {
 import { menuKeys, type MenuListParams } from '@/lib/query-manager/menus/keys'
 import {
   createMenu,
+  createMenusFromRecipes,
   updateMenu,
   deleteMenu,
   createDish,
@@ -15,6 +16,7 @@ import {
   deleteDish,
   setDishIngredients,
 } from '@/server/menus'
+import { pantryKeys } from '@/lib/query-manager/pantry/keys'
 import { useBranchContext } from '@/stores/branch-context'
 
 export function useMenus(params: Omit<MenuListParams, 'branchId'> = {}) {
@@ -43,6 +45,26 @@ export function useCreateMenu() {
     },
     onError: (err: unknown) => {
       toast.error(err instanceof Error ? err.message : 'Failed to create menu')
+    },
+  })
+}
+
+// "Add Menu with Procly": structure free-text recipes → create menus + dishes +
+// bare products. Invalidates menus (new menus) and pantry (new products).
+export function useCreateMenusFromRecipes() {
+  const queryClient = useQueryClient()
+  const branchId = useBranchContext((s) => s.activeBranchId)
+
+  return useMutation({
+    mutationFn: (data: Omit<Parameters<typeof createMenusFromRecipes>[0]['data'], 'branchId'>) =>
+      createMenusFromRecipes({ data: { ...data, branchId } }),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: menuKeys.all })
+      queryClient.invalidateQueries({ queryKey: pantryKeys.all })
+      toast.success(`Created ${result.menus} menus, ${result.dishes} dishes`)
+    },
+    onError: (err: unknown) => {
+      toast.error(err instanceof Error ? err.message : 'Failed to create menus')
     },
   })
 }

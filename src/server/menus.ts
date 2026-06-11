@@ -1,10 +1,14 @@
 import { createServerFn } from '@tanstack/react-start'
 import { and, asc, desc, eq } from 'drizzle-orm'
 import type {ProductPricing} from '@/server/lib/pricing';
+import type { WizardDishInput, WizardMenuInput } from '@/lib/pantry-gen'
 import { db, dishIngredients, dishes, menus, products } from '@/db'
 import { getAuthContext, requireRole, validateBranchAccess } from '@/server/auth/context'
 import { getLearnedPerGuest } from '@/server/lib/learned-par'
 import {  toStockQty } from '@/server/lib/pricing'
+import { resolveOrCreateProduct } from '@/server/lib/resolve-product'
+import { structureRecipes } from '@/server/ai/pantry-gen/structure'
+import { checkTierLimit } from '@/server/tier-check'
 
 type MealType = 'breakfast' | 'lunch' | 'dinner' | 'drinks' | 'event'
 
@@ -108,6 +112,115 @@ export const createMenu = createServerFn({ method: 'POST' })
       .returning()
 
     return created
+  })
+
+// Create one or more menus (+ their dishes and recipes) from free-text recipes,
+// e.g. the draft produced by "Add Menu with Procly" image extraction. This is
+// MENU creation, not pantry setup: the AI structures recipe lines into products
+// + product-linked ingredients, products are created BARE (no par, no pricing,
+// no opening stock), and ingredients with no stated quantity are still linked
+// (quantity 0). Par/pricing are added later via the pantry "generate from menus"
+// step. FK-ordered, no transaction (consistent with the rest of the codebase).
+export const createMenusFromRecipes = createServerFn({ method: 'POST' })
+  .inputValidator(
+    (data: {
+      branchId: string
+      menus: Array<WizardMenuInput>
+      dishes: Array<WizardDishInput>
+    }) => data,
+  )
+  .handler(async ({ data }) => {
+    const ctx = await getAuthContext()
+    requireRole(ctx, 'owner', 'admin')
+    await validateBranchAccess(ctx, data.branchId)
+
+    if (data.dishes.length === 0 || data.dishes.every((d) => !d.recipe.trim())) {
+      throw new Error('Add at least one dish with a recipe before creating the menu.')
+    }
+
+    const limits = await checkTierLimit(ctx.companyId, 'products')
+    if (!limits.allowed) {
+      throw new Error(
+        `Product limit reached (${limits.current}/${limits.max}). Upgrade your plan to add more products.`,
+      )
+    }
+
+    const { branchId } = data
+
+    // Structure free-text recipes into products + linked ingredients. keepZeroQty
+    // so an ingredient named without a quantity still attaches to the dish.
+    const structured = await structureRecipes(data.menus, data.dishes, { keepZeroQty: true })
+
+    // 1. Bare products (resolve against existing by name; create with unit model
+    //    only — no par/pricing/stock).
+    const keyToProductId = new Map<string, string>()
+    for (const p of structured.products) {
+      const { productId } = await resolveOrCreateProduct(branchId, {
+        name: p.name,
+        category: p.category,
+        stockUnit: p.stockUnit,
+        baseUnit: p.baseUnit ?? null,
+        baseUnitsPerStock: p.baseUnitsPerStock ?? null,
+        servingUnit: p.servingUnit ?? null,
+        servingSize: p.servingSize ?? null,
+      })
+      keyToProductId.set(p.tempKey, productId)
+    }
+
+    // 2. Menus
+    const menuRefToId = new Map<string, string>()
+    for (const m of data.menus) {
+      if (!m.name.trim()) continue
+      const [menu] = await db
+        .insert(menus)
+        .values({
+          branchId,
+          name: m.name.trim(),
+          mealType: m.mealType,
+          eventTag: m.eventTag?.trim() || null,
+        })
+        .returning({ id: menus.id })
+      menuRefToId.set(m.tempId, menu.id)
+    }
+
+    // 3. Dishes + ingredient links (keep zero-qty links; refined later)
+    let dishCount = 0
+    for (const d of structured.dishes) {
+      const menuId = menuRefToId.get(d.menuRef)
+      if (!menuId || !d.name.trim()) continue
+
+      const [dish] = await db
+        .insert(dishes)
+        .values({
+          menuId,
+          name: d.name.trim(),
+          defaultServingsPerGuest: String(d.defaultServingsPerGuest || 1),
+        })
+        .returning({ id: dishes.id })
+      dishCount++
+
+      const links = d.ingredients
+        .map((ing) => {
+          const productId = keyToProductId.get(ing.productTempKey)
+          if (!productId) return null
+          return {
+            dishId: dish.id,
+            productId,
+            quantityPerServing: String(ing.quantityPerServing || 0),
+            unit: ing.unit,
+          }
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null)
+
+      if (links.length > 0) await db.insert(dishIngredients).values(links)
+    }
+
+    return {
+      success: true,
+      menus: menuRefToId.size,
+      dishes: dishCount,
+      products: keyToProductId.size,
+    }
   })
 
 export const updateMenu = createServerFn({ method: 'POST' })

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Download, NotepadText, Plus } from 'lucide-react'
+import { Download, EggFried, Plus } from 'lucide-react'
 import { AppLayout } from '@/components/layout/app-layout'
 import { PageHeader } from '@/components/ui/page-header'
 import { StatCard } from '@/components/ui/stat-card'
@@ -57,7 +57,7 @@ export function PantryPage() {
                   className="gap-2"
                   onClick={() => setGenDialogOpen(true)}
                 >
-                  <NotepadText className="h-4 w-4" />
+                  <EggFried className="h-4 w-4" />
                   Generate Items with Procly
                 </Button>
 

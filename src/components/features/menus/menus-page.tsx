@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { Plus, ChefHat, Coffee, UtensilsCrossed, Wine, Sparkles } from 'lucide-react'
+import { Plus, ChefHat, Coffee, UtensilsCrossed, Wine, Sparkles, EggFried } from 'lucide-react'
 import { AppLayout } from '@/components/layout/app-layout'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
-import { MenuFormDialog } from './menu-form-dialog'
+import { AddMenuWizard } from './add-menu-wizard'
 import { useMenus } from '@/hooks/use-menus'
 import { usePermissions } from '@/hooks/use-permissions'
 
@@ -23,6 +23,7 @@ const MEAL_TYPE_META: Record<
 
 export function MenusPage() {
   const [addOpen, setAddOpen] = useState(false)
+  const [proclyOpen, setProclyOpen] = useState(false)
   const { data: menus = [], isLoading } = useMenus({ includeInactive: true })
   const { canManageMenus } = usePermissions()
 
@@ -44,10 +45,16 @@ export function MenusPage() {
           description="Recipes the AI uses as the starting point for issuance and demand forecasting."
           actions={
             canManageMenus ? (
-              <Button className="gap-2" onClick={() => setAddOpen(true)}>
-                <Plus className="h-4 w-4" />
-                New Menu
-              </Button>
+              <>
+                <Button variant="outline" className="gap-2" onClick={() => setAddOpen(true)}>
+                  <Plus className="h-4 w-4" />
+                  New Menu
+                </Button>
+                <Button className="gap-2" onClick={() => setProclyOpen(true)}>
+                  <EggFried className="h-4 w-4" />
+                  Add Menu with Procly
+                </Button>
+              </>
             ) : undefined
           }
         />
@@ -121,7 +128,9 @@ export function MenusPage() {
           })}
         </div>
 
-        <MenuFormDialog open={addOpen} onClose={() => setAddOpen(false)} />
+        <AddMenuWizard open={addOpen} startStep="edit" onClose={() => setAddOpen(false)} />
+
+        <AddMenuWizard open={proclyOpen} startStep="upload" onClose={() => setProclyOpen(false)} />
       </>
     </AppLayout>
   )

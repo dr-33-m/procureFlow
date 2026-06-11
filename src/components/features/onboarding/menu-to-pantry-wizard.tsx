@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
-import { ArrowLeft, Check, Loader2, NotepadText, Plus, Trash2 } from 'lucide-react'
-import type {GenProductWithPar, MealType, PantryProposal} from '@/lib/pantry-gen';
+import { ArrowLeft, Check, Loader2, NotepadText } from 'lucide-react'
+import type { GenProductWithPar, PantryProposal } from '@/lib/pantry-gen'
+import type {EditorDish, EditorMenu} from '@/components/features/menus/menu-recipe-editor';
 import {
   Dialog,
   DialogContent,
@@ -10,33 +11,27 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { useCommitPantry, useGeneratePantry } from '@/hooks/use-ai-pantry-gen'
+import { Badge } from '@/components/ui/badge'
 import {
   
   
-  
-  deriveParByProduct
-} from '@/lib/pantry-gen'
-
-const MEAL_TYPES: Array<MealType> = ['breakfast', 'lunch', 'dinner', 'drinks', 'event']
+  MenuRecipeEditor
+} from '@/components/features/menus/menu-recipe-editor'
+import {
+  useApplyPantryFromMenus,
+  useCommitPantry,
+  useDerivePantryFromMenus,
+  useGeneratePantry,
+} from '@/hooks/use-ai-pantry-gen'
+import { useMenus } from '@/hooks/use-menus'
+import { deriveParByProduct } from '@/lib/pantry-gen'
+import { cn } from '@/lib/utils'
 
 function uid() {
   return Math.random().toString(36).slice(2, 10)
 }
 
-type WizMenu = { tempId: string; name: string; mealType: MealType; eventTag: string }
-type WizDish = { localId: string; menuRef: string; name: string; servings: string; recipe: string }
-
-// Review row: the AI product spec + the pricing/opening-stock the user fills in.
+// Review row: the product spec + the pricing/opening-stock the user fills in.
 type ReviewProduct = GenProductWithPar & {
   initialQuantity: string
   purchaseUnit: string
@@ -45,31 +40,42 @@ type ReviewProduct = GenProductWithPar & {
   supplier: string
 }
 
+// Where the recipes come from: typed by hand, or pulled from existing menus.
+type Mode = 'manual' | 'existing'
+type Step = 'input' | 'review'
+
 interface MenuToPantryWizardProps {
   open: boolean
   onClose: () => void
 }
 
 export function MenuToPantryWizard({ open, onClose }: MenuToPantryWizardProps) {
-  const [step, setStep] = useState<'input' | 'review'>('input')
+  const [mode, setMode] = useState<Mode>('manual')
+  const [step, setStep] = useState<Step>('input')
   const firstMenuId = useMemo(uid, [])
-  const [menus, setMenus] = useState<Array<WizMenu>>([
+  const [menus, setMenus] = useState<Array<EditorMenu>>([
     { tempId: firstMenuId, name: '', mealType: 'breakfast', eventTag: '' },
   ])
-  const [dishes, setDishes] = useState<Array<WizDish>>([
+  const [dishes, setDishes] = useState<Array<EditorDish>>([
     { localId: uid(), menuRef: firstMenuId, name: '', servings: '1', recipe: '' },
   ])
+  const [selectedMenuIds, setSelectedMenuIds] = useState<Set<string>>(new Set())
   const [proposal, setProposal] = useState<PantryProposal | null>(null)
   const [reviewProducts, setReviewProducts] = useState<Array<ReviewProduct>>([])
 
   const generate = useGeneratePantry()
+  const derive = useDerivePantryFromMenus()
   const commit = useCommitPantry()
+  const apply = useApplyPantryFromMenus()
+  const { data: existingMenus = [], isLoading: menusLoading } = useMenus({ includeInactive: true })
 
   const reset = () => {
     const id = uid()
+    setMode('manual')
     setStep('input')
     setMenus([{ tempId: id, name: '', mealType: 'breakfast', eventTag: '' }])
     setDishes([{ localId: uid(), menuRef: id, name: '', servings: '1', recipe: '' }])
+    setSelectedMenuIds(new Set())
     setProposal(null)
     setReviewProducts([])
   }
@@ -79,13 +85,13 @@ export function MenuToPantryWizard({ open, onClose }: MenuToPantryWizardProps) {
     onClose()
   }
 
-  // ── Input-step mutations ────────────────────────────────────────────────────
+  // ── Manual input mutations ──────────────────────────────────────────────────
   const addMenu = () => {
     const id = uid()
     setMenus((p) => [...p, { tempId: id, name: '', mealType: 'dinner', eventTag: '' }])
     setDishes((p) => [...p, { localId: uid(), menuRef: id, name: '', servings: '1', recipe: '' }])
   }
-  const patchMenu = (tempId: string, patch: Partial<WizMenu>) =>
+  const patchMenu = (tempId: string, patch: Partial<EditorMenu>) =>
     setMenus((p) => p.map((m) => (m.tempId === tempId ? { ...m, ...patch } : m)))
   const removeMenu = (tempId: string) => {
     setMenus((p) => p.filter((m) => m.tempId !== tempId))
@@ -93,48 +99,72 @@ export function MenuToPantryWizard({ open, onClose }: MenuToPantryWizardProps) {
   }
   const addDish = (menuRef: string) =>
     setDishes((p) => [...p, { localId: uid(), menuRef, name: '', servings: '1', recipe: '' }])
-  const patchDish = (localId: string, patch: Partial<WizDish>) =>
+  const patchDish = (localId: string, patch: Partial<EditorDish>) =>
     setDishes((p) => p.map((d) => (d.localId === localId ? { ...d, ...patch } : d)))
   const removeDish = (localId: string) =>
     setDishes((p) => p.filter((d) => d.localId !== localId))
 
   const hasUsableRecipe = dishes.some((d) => d.name.trim() && d.recipe.trim())
 
+  const toggleMenu = (id: string) =>
+    setSelectedMenuIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+
+  // Build editable review rows from a proposal. `openingDefault` is '0' for new
+  // products (manual) and '' for existing (leave current stock untouched).
+  const toReview = (p: PantryProposal, openingDefault: string): Array<ReviewProduct> =>
+    p.products.map((prod) => ({
+      ...prod,
+      initialQuantity: openingDefault,
+      purchaseUnit: '',
+      purchasePackSize: '',
+      purchasePrice: '',
+      supplier: '',
+    }))
+
   const handleGenerate = () => {
-    generate.mutate(
-      {
-        menus: menus.map((m) => ({
-          tempId: m.tempId,
-          name: m.name.trim() || 'Untitled menu',
-          mealType: m.mealType,
-          eventTag: m.eventTag.trim() || null,
-        })),
-        dishes: dishes
-          .filter((d) => d.name.trim() && d.recipe.trim())
-          .map((d) => ({
-            menuRef: d.menuRef,
-            name: d.name.trim(),
-            defaultServingsPerGuest: parseFloat(d.servings) || 1,
-            recipe: d.recipe,
+    if (mode === 'manual') {
+      generate.mutate(
+        {
+          menus: menus.map((m) => ({
+            tempId: m.tempId,
+            name: m.name.trim() || 'Untitled menu',
+            mealType: m.mealType,
+            eventTag: m.eventTag.trim() || null,
           })),
-      },
-      {
-        onSuccess: (p) => {
-          setProposal(p)
-          setReviewProducts(
-            p.products.map((prod) => ({
-              ...prod,
-              initialQuantity: '0',
-              purchaseUnit: '',
-              purchasePackSize: '',
-              purchasePrice: '',
-              supplier: '',
+          dishes: dishes
+            .filter((d) => d.name.trim() && d.recipe.trim())
+            .map((d) => ({
+              menuRef: d.menuRef,
+              name: d.name.trim(),
+              defaultServingsPerGuest: parseFloat(d.servings) || 1,
+              recipe: d.recipe,
             })),
-          )
-          setStep('review')
         },
-      },
-    )
+        {
+          onSuccess: (p) => {
+            setProposal(p)
+            setReviewProducts(toReview(p, '0'))
+            setStep('review')
+          },
+        },
+      )
+    } else {
+      derive.mutate(
+        { menuIds: [...selectedMenuIds] },
+        {
+          onSuccess: (p) => {
+            setProposal(p)
+            setReviewProducts(toReview(p, ''))
+            setStep('review')
+          },
+        },
+      )
+    }
   }
 
   // ── Review-step live par ────────────────────────────────────────────────────
@@ -153,34 +183,62 @@ export function MenuToPantryWizard({ open, onClose }: MenuToPantryWizardProps) {
 
   const handleCommit = () => {
     if (!proposal) return
-    commit.mutate(
-      {
-        menus: menus.map((m) => ({
-          tempId: m.tempId,
-          name: m.name.trim() || 'Untitled menu',
-          mealType: m.mealType,
-          eventTag: m.eventTag.trim() || null,
-        })),
-        products: reviewProducts.map((r) => ({
-          tempKey: r.tempKey,
-          name: r.name,
-          category: r.category,
-          stockUnit: r.stockUnit,
-          baseUnit: r.baseUnit ?? null,
-          baseUnitsPerStock: r.baseUnitsPerStock ?? null,
-          servingUnit: r.servingUnit ?? null,
-          servingSize: r.servingSize ?? null,
-          purchaseUnit: r.purchaseUnit.trim() || null,
-          purchasePackSize: numOrNull(r.purchasePackSize),
-          purchasePrice: numOrNull(r.purchasePrice),
-          supplier: r.supplier.trim() || null,
-          initialQuantity: numOrNull(r.initialQuantity) ?? 0,
-        })),
-        dishes: proposal.dishes,
-      },
-      { onSuccess: handleClose },
-    )
+    if (mode === 'manual') {
+      commit.mutate(
+        {
+          menus: menus.map((m) => ({
+            tempId: m.tempId,
+            name: m.name.trim() || 'Untitled menu',
+            mealType: m.mealType,
+            eventTag: m.eventTag.trim() || null,
+          })),
+          products: reviewProducts.map((r) => ({
+            tempKey: r.tempKey,
+            name: r.name,
+            category: r.category,
+            stockUnit: r.stockUnit,
+            baseUnit: r.baseUnit ?? null,
+            baseUnitsPerStock: r.baseUnitsPerStock ?? null,
+            servingUnit: r.servingUnit ?? null,
+            servingSize: r.servingSize ?? null,
+            purchaseUnit: r.purchaseUnit.trim() || null,
+            purchasePackSize: numOrNull(r.purchasePackSize),
+            purchasePrice: numOrNull(r.purchasePrice),
+            supplier: r.supplier.trim() || null,
+            initialQuantity: numOrNull(r.initialQuantity) ?? 0,
+          })),
+          dishes: proposal.dishes,
+        },
+        { onSuccess: handleClose },
+      )
+    } else {
+      apply.mutate(
+        {
+          items: reviewProducts.map((r) => ({
+            productId: r.tempKey,
+            category: r.category,
+            stockUnit: r.stockUnit,
+            baseUnit: r.baseUnit ?? null,
+            baseUnitsPerStock: r.baseUnitsPerStock ?? null,
+            servingUnit: r.servingUnit ?? null,
+            servingSize: r.servingSize ?? null,
+            parPerGuestStock: parByKey.get(r.tempKey) ?? 0,
+            purchaseUnit: r.purchaseUnit.trim() || null,
+            purchasePackSize: numOrNull(r.purchasePackSize),
+            purchasePrice: numOrNull(r.purchasePrice),
+            supplier: r.supplier.trim() || null,
+            // Blank opening qty = leave current stock; a number overwrites it.
+            initialQuantity: r.initialQuantity.trim() === '' ? null : numOrNull(r.initialQuantity),
+          })),
+        },
+        { onSuccess: handleClose },
+      )
+    }
   }
+
+  const generating = generate.isPending || derive.isPending
+  const committing = commit.isPending || apply.isPending
+  const canGenerate = mode === 'manual' ? hasUsableRecipe : selectedMenuIds.size > 0
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -192,136 +250,120 @@ export function MenuToPantryWizard({ open, onClose }: MenuToPantryWizardProps) {
           </DialogTitle>
           <DialogDescription>
             {step === 'input'
-              ? 'Enter your menus and recipes. Procly consolidates the ingredients into a pantry and derives a starting par-per-guest from your portions.'
-              : 'Review the generated products. Par-per-guest is derived from your recipes — add opening stock and pricing, then create.'}
+              ? 'Build your pantry from recipes — type them in, or pull from menus you already have. Procly consolidates the ingredients and derives a starting par-per-guest from your portions.'
+              : mode === 'manual'
+                ? 'Review the generated products. Par-per-guest is derived from your recipes — add opening stock and pricing, then create.'
+                : 'Review the products from your menus. Par-per-guest is derived from their recipes — adjust pricing/stock (leave opening qty blank to keep current), then update.'}
           </DialogDescription>
         </DialogHeader>
 
         {step === 'input' ? (
           <div className="space-y-5">
-            {menus.map((menu) => (
-              <div key={menu.tempId} className="rounded-lg border p-4 space-y-3">
-                <div className="grid gap-3 sm:grid-cols-[2fr_1fr_1fr_auto] items-end">
-                  <div className="space-y-1.5">
-                    <Label>Menu name</Label>
-                    <Input
-                      value={menu.name}
-                      placeholder="e.g. Breakfast Buffet"
-                      onChange={(e) => patchMenu(menu.tempId, { name: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Meal type</Label>
-                    <Select
-                      value={menu.mealType}
-                      onValueChange={(v) => patchMenu(menu.tempId, { mealType: v as MealType })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {MEAL_TYPES.map((mt) => (
-                          <SelectItem key={mt} value={mt} className="capitalize">
-                            {mt}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Event tag (optional)</Label>
-                    <Input
-                      value={menu.eventTag}
-                      placeholder="e.g. wedding"
-                      onChange={(e) => patchMenu(menu.tempId, { eventTag: e.target.value })}
-                    />
-                  </div>
-                  {menus.length > 1 && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeMenu(menu.tempId)}
-                      aria-label="Remove menu"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
+            {/* Source toggle */}
+            <div className="inline-flex rounded-lg border p-1">
+              <button
+                type="button"
+                onClick={() => setMode('manual')}
+                className={cn(
+                  'rounded-md px-3 py-1.5 text-sm font-medium transition',
+                  mode === 'manual'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                Type recipes
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('existing')}
+                className={cn(
+                  'rounded-md px-3 py-1.5 text-sm font-medium transition',
+                  mode === 'existing'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                From existing menus
+              </button>
+            </div>
 
-                <div className="space-y-3 pl-1">
-                  {dishes
-                    .filter((d) => d.menuRef === menu.tempId)
-                    .map((dish) => (
-                      <div key={dish.localId} className="rounded border bg-muted/30 p-3 space-y-2">
-                        <div className="grid gap-2 sm:grid-cols-[2fr_1fr_auto] items-end">
-                          <div className="space-y-1.5">
-                            <Label className="text-xs">Dish name</Label>
-                            <Input
-                              value={dish.name}
-                              placeholder="e.g. Full English"
-                              onChange={(e) => patchDish(dish.localId, { name: e.target.value })}
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs">Servings / guest</Label>
-                            <Input
-                              type="number"
-                              step="0.1"
-                              min="0"
-                              value={dish.servings}
-                              onChange={(e) => patchDish(dish.localId, { servings: e.target.value })}
-                            />
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeDish(dish.localId)}
-                            aria-label="Remove dish"
+            {mode === 'manual' ? (
+              <MenuRecipeEditor
+                menus={menus}
+                dishes={dishes}
+                patchMenu={patchMenu}
+                removeMenu={removeMenu}
+                addMenu={addMenu}
+                addDish={addDish}
+                patchDish={patchDish}
+                removeDish={removeDish}
+              />
+            ) : (
+              <div className="space-y-2">
+                {menusLoading ? (
+                  <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Loading menus…
+                  </div>
+                ) : existingMenus.length === 0 ? (
+                  <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                    No menus yet. Add one with “Add Menu with Procly” on the Menus page, or switch to
+                    “Type recipes”.
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      Select the menus to build your pantry from.
+                    </p>
+                    <div className="space-y-2">
+                      {existingMenus.map((m) => {
+                        const selected = selectedMenuIds.has(m.id)
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => toggleMenu(m.id)}
+                            className={cn(
+                              'flex w-full items-center gap-3 rounded-md border p-3 text-left transition',
+                              selected ? 'border-primary bg-primary/5' : 'hover:bg-accent',
+                            )}
                           >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Recipe — one ingredient per line</Label>
-                          <Textarea
-                            rows={4}
-                            value={dish.recipe}
-                            placeholder={'180g chicken breast\n15ml olive oil\n2 eggs\n1 slice bread'}
-                            className="font-mono text-sm"
-                            onChange={(e) => patchDish(dish.localId, { recipe: e.target.value })}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1"
-                    onClick={() => addDish(menu.tempId)}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    Add dish
-                  </Button>
-                </div>
+                            <span
+                              className={cn(
+                                'flex h-4 w-4 shrink-0 items-center justify-center rounded border',
+                                selected && 'border-primary bg-primary text-primary-foreground',
+                              )}
+                            >
+                              {selected && <Check className="h-3 w-3" />}
+                            </span>
+                            <span className="font-medium">{m.name}</span>
+                            <Badge variant="secondary" className="ml-auto capitalize">
+                              {m.mealType}
+                            </Badge>
+                            {m.eventTag && (
+                              <Badge variant="outline" className="capitalize">
+                                {m.eventTag}
+                              </Badge>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </>
+                )}
               </div>
-            ))}
-
-            <Button variant="outline" className="gap-1" onClick={addMenu}>
-              <Plus className="h-4 w-4" />
-              Add menu
-            </Button>
+            )}
 
             <div className="flex items-center justify-end gap-3 border-t pt-4">
               <Button variant="outline" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button onClick={handleGenerate} disabled={!hasUsableRecipe || generate.isPending} className="gap-2">
-                {generate.isPending ? (
+              <Button onClick={handleGenerate} disabled={!canGenerate || generating} className="gap-2">
+                {generating ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <NotepadText className="h-4 w-4" />
                 )}
-                {generate.isPending ? 'Generating…' : 'Generate pantry'}
+                {generating ? 'Generating…' : 'Generate pantry'}
               </Button>
             </div>
           </div>
@@ -330,7 +372,7 @@ export function MenuToPantryWizard({ open, onClose }: MenuToPantryWizardProps) {
             <p className="text-sm text-muted-foreground">
               <span className="font-medium text-foreground">{reviewProducts.length} products</span>{' '}
               derived from {proposal?.dishes.length ?? 0} dishes. Par-per-guest (in stock units) is
-              computed from your recipes and stored as a low-confidence estimate that improves as the
+              computed from the recipes and stored as a low-confidence estimate that improves as the
               kitchen reconciles real usage.
             </p>
 
@@ -404,6 +446,7 @@ export function MenuToPantryWizard({ open, onClose }: MenuToPantryWizardProps) {
                           type="number"
                           value={r.initialQuantity}
                           className="h-8 w-20"
+                          placeholder={mode === 'existing' ? 'keep' : undefined}
                           onChange={(e) =>
                             patchProduct(r.tempKey, { initialQuantity: e.target.value })
                           }
@@ -456,19 +499,25 @@ export function MenuToPantryWizard({ open, onClose }: MenuToPantryWizardProps) {
             <div className="flex items-center justify-between border-t pt-4">
               <Button variant="ghost" className="gap-1" onClick={() => setStep('input')}>
                 <ArrowLeft className="h-4 w-4" />
-                Back to recipes
+                Back
               </Button>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={handleClose}>
                   Cancel
                 </Button>
-                <Button onClick={handleCommit} disabled={commit.isPending} className="gap-2">
-                  {commit.isPending ? (
+                <Button onClick={handleCommit} disabled={committing} className="gap-2">
+                  {committing ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <Check className="h-4 w-4" />
                   )}
-                  {commit.isPending ? 'Creating…' : `Create ${reviewProducts.length} products`}
+                  {committing
+                    ? mode === 'manual'
+                      ? 'Creating…'
+                      : 'Updating…'
+                    : mode === 'manual'
+                      ? `Create ${reviewProducts.length} products`
+                      : `Update ${reviewProducts.length} products`}
                 </Button>
               </div>
             </div>
