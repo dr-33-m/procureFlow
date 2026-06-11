@@ -14,18 +14,6 @@ services:
       timeout: 5s
       retries: 5
 
-  migrate:
-    build:
-      context: .
-      target: migrator
-    command: pnpm db:migrate
-    environment:
-      DATABASE_URL: postgresql://procureflow:${DB_PASSWORD}@db:5432/procureflow
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: on-failure
-
   app:
     build: .
     restart: unless-stopped
@@ -44,8 +32,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
 
 volumes:
   postgres_data:

@@ -14,18 +14,19 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN pnpm build
 
-# ── Stage 3: Migrator (drizzle-kit + migration files only) ──
-FROM base AS migrator
+# ── Stage 3: Runtime ────────────────────────────────────────
+FROM base AS runner
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY drizzle.config.ts ./
-COPY drizzle/ ./drizzle/
-COPY src/db/ ./src/db/
-COPY package.json ./
-
-# ── Stage 4: Runtime ────────────────────────────────────────
-FROM node:24-slim AS runner
-WORKDIR /app
+# Built app
 COPY --from=builder /app/.output ./.output
+# Migration tooling (drizzle-kit + config + migrations)
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=builder /app/drizzle ./drizzle
+COPY --from=builder /app/drizzle.config.ts ./drizzle.config.ts
+COPY --from=builder /app/src/db ./src/db
+COPY --from=builder /app/package.json ./package.json
+# Entrypoint
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
 EXPOSE 3000
-CMD ["node", ".output/server/index.mjs"]
+ENTRYPOINT ["./docker-entrypoint.sh"]
