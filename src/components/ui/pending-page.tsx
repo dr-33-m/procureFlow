@@ -5,7 +5,7 @@ interface PendingPageProps {
   title: string
   description?: React.ReactNode
   /** Roughly match the real page's layout so the swap is less jarring. */
-  variant?: 'table' | 'cards'
+  variant?: 'table' | 'cards' | 'settings-form' | 'profile'
 }
 
 /**
@@ -27,6 +27,60 @@ export function PendingPage({
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-28 w-full" />
           ))}
+        </div>
+      ) : variant === 'settings-form' ? (
+        <>
+          <div className="flex gap-1 border-b">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-8 w-20" />
+            ))}
+          </div>
+          <div className="rounded-lg border p-6 space-y-5 max-w-xl">
+            <div className="space-y-1.5">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <div className="space-y-1.5">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <div className="flex justify-end pt-2">
+              <Skeleton className="h-9 w-28" />
+            </div>
+          </div>
+        </>
+      ) : variant === 'profile' ? (
+        <div className="rounded-lg border bg-card">
+          <div className="px-6 py-6 flex items-center gap-6">
+            <Skeleton className="h-16 w-16 rounded-full shrink-0" />
+            <div className="flex-1 space-y-3">
+              <div className="space-y-1.5">
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+              <div className="space-y-1.5">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            </div>
+          </div>
+          <div className="px-6 py-4 border-t space-y-3">
+            <div className="space-y-1.5">
+              <Skeleton className="h-4 w-12" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <div className="space-y-1.5">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          </div>
+          <div className="px-6 py-4 border-t flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-4 w-8" />
+              <Skeleton className="h-6 w-16 rounded-full" />
+            </div>
+            <Skeleton className="h-9 w-28" />
+          </div>
         </div>
       ) : (
         <div className="space-y-3">

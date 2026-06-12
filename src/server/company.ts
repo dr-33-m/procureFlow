@@ -8,7 +8,7 @@ import {
   products,
   stations,
 } from '@/db'
-import { eq, and, count } from 'drizzle-orm'
+import { eq, and, count, inArray } from 'drizzle-orm'
 import { getAuthContext, requireRole } from '@/server/auth/context'
 import { getAppSession } from '@/server/auth/session'
 import { checkTierLimit } from '@/server/tier-check'
@@ -125,64 +125,62 @@ export const getTierUsage = createServerFn({ method: 'GET' }).handler(
   async (): Promise<TierUsage> => {
     const ctx = await getAuthContext()
 
-    const [company] = await db
-      .select({ tier: companies.tier })
-      .from(companies)
-      .where(eq(companies.id, ctx.companyId))
-      .limit(1)
+    // Fetch tier + branch IDs + company user count in parallel
+    const [companyRow, branchRows, companyUserResult] = await Promise.all([
+      db
+        .select({ tier: companies.tier })
+        .from(companies)
+        .where(eq(companies.id, ctx.companyId))
+        .limit(1)
+        .then((r) => r[0]),
+      db
+        .select({ id: branches.id })
+        .from(branches)
+        .where(eq(branches.companyId, ctx.companyId)),
+      db
+        .select({ count: count() })
+        .from(companyMembers)
+        .where(eq(companyMembers.companyId, ctx.companyId))
+        .then((r) => r[0]?.count ?? 0),
+    ])
 
-    const tier = company?.tier ?? 'starter'
+    const tier = companyRow?.tier ?? 'starter'
     const limits = getTierLimits(tier)
-
-    const [branchCount] = await db
-      .select({ count: count() })
-      .from(branches)
-      .where(eq(branches.companyId, ctx.companyId))
-
-    const companyUserCount = await db
-      .select({ count: count() })
-      .from(companyMembers)
-      .where(eq(companyMembers.companyId, ctx.companyId))
-
-    const companyBranchIds = await db
-      .select({ id: branches.id })
-      .from(branches)
-      .where(eq(branches.companyId, ctx.companyId))
-    const branchIds = companyBranchIds.map((b) => b.id)
+    const branchIds = branchRows.map((b) => b.id)
+    const branchCount = branchIds.length
 
     let branchUserCount = 0
     let stationCount = 0
     let productCount = 0
 
     if (branchIds.length > 0) {
-      const { inArray } = await import('drizzle-orm')
-
-      const [bmCount] = await db
-        .select({ count: count() })
-        .from(branchMembers)
-        .where(inArray(branchMembers.branchId, branchIds))
-      branchUserCount = bmCount?.count ?? 0
-
-      const [stCount] = await db
-        .select({ count: count() })
-        .from(stations)
-        .where(inArray(stations.branchId, branchIds))
-      stationCount = stCount?.count ?? 0
-
-      const [prodCount] = await db
-        .select({ count: count() })
-        .from(products)
-        .where(inArray(products.branchId, branchIds))
-      productCount = prodCount?.count ?? 0
+      const [bmResult, stResult, prodResult] = await Promise.all([
+        db
+          .select({ count: count() })
+          .from(branchMembers)
+          .where(inArray(branchMembers.branchId, branchIds))
+          .then((r) => r[0]?.count ?? 0),
+        db
+          .select({ count: count() })
+          .from(stations)
+          .where(inArray(stations.branchId, branchIds))
+          .then((r) => r[0]?.count ?? 0),
+        db
+          .select({ count: count() })
+          .from(products)
+          .where(inArray(products.branchId, branchIds))
+          .then((r) => r[0]?.count ?? 0),
+      ])
+      branchUserCount = bmResult
+      stationCount = stResult
+      productCount = prodResult
     }
-
-    const totalUsers = (companyUserCount[0]?.count ?? 0) + branchUserCount
 
     return {
       tier,
       usage: {
-        branches: branchCount?.count ?? 0,
-        users: totalUsers,
+        branches: branchCount,
+        users: companyUserResult + branchUserCount,
         stations: stationCount,
         products: productCount,
       },

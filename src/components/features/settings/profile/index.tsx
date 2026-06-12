@@ -58,7 +58,7 @@ const ROLE_COLORS: Record<UserRole, string> = {
 export function ProfilePage() {
   const auth = useAuth()
 
-  const { data: logtoProfile, isLoading } = useProfile()
+  const { data: logtoProfile } = useProfile()
 
   // Form state
   const [name, setName] = useState('')
@@ -192,55 +192,49 @@ export function ProfilePage() {
       <div className="space-y-6">
         <PageHeader title="Profile" description="Manage your personal details." />
 
-        {isLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          </div>
-        ) : (
-          <div className="rounded-lg border bg-card">
-            <IdentitySection
-              displayName={displayName}
-              avatarSrc={avatarSrc}
-              avatarPreviewError={avatarPreviewError}
-              name={name}
-              username={username}
-              avatar={avatar}
-              onNameChange={setName}
-              onUsernameChange={setUsername}
-              onAvatarChange={(v) => { setAvatar(v); setAvatarPreviewError(false) }}
-              onAvatarPreviewError={() => setAvatarPreviewError(true)}
-            />
+        <div className="rounded-lg border bg-card">
+          <IdentitySection
+            displayName={displayName}
+            avatarSrc={avatarSrc}
+            avatarPreviewError={avatarPreviewError}
+            name={name}
+            username={username}
+            avatar={avatar}
+            onNameChange={setName}
+            onUsernameChange={setUsername}
+            onAvatarChange={(v) => { setAvatar(v); setAvatarPreviewError(false) }}
+            onAvatarPreviewError={() => setAvatarPreviewError(true)}
+          />
 
-            <ContactSection
-              email={email}
-              newPassword={newPassword}
-              confirmPassword={confirmPassword}
-              passwordChanged={passwordChanged}
-              passwordsMatch={passwordsMatch}
-              onEmailChange={setEmail}
-              onNewPasswordChange={setNewPassword}
-              onConfirmPasswordChange={setConfirmPassword}
-            />
+          <ContactSection
+            email={email}
+            newPassword={newPassword}
+            confirmPassword={confirmPassword}
+            passwordChanged={passwordChanged}
+            passwordsMatch={passwordsMatch}
+            onEmailChange={setEmail}
+            onNewPasswordChange={setNewPassword}
+            onConfirmPasswordChange={setConfirmPassword}
+          />
 
-            <div className="px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-muted-foreground">Role</span>
-                {auth?.userRole && (
-                  <Badge
-                    variant="outline"
-                    className={`text-xs capitalize ${ROLE_COLORS[auth.userRole]}`}
-                  >
-                    {ROLE_LABELS[auth.userRole]}
-                  </Badge>
-                )}
-              </div>
-              <Button onClick={handleSave} disabled={!isDirty || hasError || isSaving}>
-                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save changes
-              </Button>
+          <div className="px-6 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-muted-foreground">Role</span>
+              {auth?.userRole && (
+                <Badge
+                  variant="outline"
+                  className={`text-xs capitalize ${ROLE_COLORS[auth.userRole]}`}
+                >
+                  {ROLE_LABELS[auth.userRole]}
+                </Badge>
+              )}
             </div>
+            <Button onClick={handleSave} disabled={!isDirty || hasError || isSaving}>
+              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save changes
+            </Button>
           </div>
-        )}
+        </div>
       </div>
 
       <PasswordDialog

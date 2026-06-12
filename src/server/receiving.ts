@@ -109,24 +109,17 @@ export const getReceivingLists = createServerFn({ method: 'GET' })
     if (lists.length === 0) return []
     const listIds = lists.map((l) => l.id)
 
-    // Scope item counts to just the lists we're returning (was a full-table
-    // scan across every branch), and run them alongside the member lookup.
-    const [itemCounts, verifyItems, memberRows] = await Promise.all([
+    // Scope item counts + verified counts to returned lists, run alongside member lookup.
+    const [itemCounts, memberRows] = await Promise.all([
       db
         .select({
           shoppingListId: shoppingListItems.shoppingListId,
           total: count(),
+          verified: sql<number>`count(*) filter (where ${shoppingListItems.receivedQuantity}::numeric > 0)::int`,
         })
         .from(shoppingListItems)
         .where(inArray(shoppingListItems.shoppingListId, listIds))
         .groupBy(shoppingListItems.shoppingListId),
-      db
-        .select({
-          shoppingListId: shoppingListItems.shoppingListId,
-          receivedQuantity: shoppingListItems.receivedQuantity,
-        })
-        .from(shoppingListItems)
-        .where(inArray(shoppingListItems.shoppingListId, listIds)),
       db
         .select({ userId: branchMembers.userId, name: users.name })
         .from(branchMembers)
@@ -135,14 +128,7 @@ export const getReceivingLists = createServerFn({ method: 'GET' })
     ])
 
     const totalMap = Object.fromEntries(itemCounts.map((r) => [r.shoppingListId, r.total]))
-
-    const verifiedMap: Record<string, number> = {}
-    for (const item of verifyItems) {
-      const received = parseFloat(item.receivedQuantity ?? '0')
-      if (received > 0) {
-        verifiedMap[item.shoppingListId] = (verifiedMap[item.shoppingListId] ?? 0) + 1
-      }
-    }
+    const verifiedMap = Object.fromEntries(itemCounts.map((r) => [r.shoppingListId, r.verified]))
 
     const memberMap = Object.fromEntries(
       memberRows.map((r) => [r.userId, r.name ?? '']),

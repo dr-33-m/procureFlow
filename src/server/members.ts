@@ -25,26 +25,26 @@ export const getMembers = createServerFn({ method: 'GET' }).handler(
     const ctx = await getAuthContext()
     requireRole(ctx, 'owner', 'admin')
 
-    // Company-level members (owner/admin)
-    const companyMemberRows = await db
-      .select({
-        id: companyMembers.id,
-        userId: companyMembers.userId,
-        role: companyMembers.role,
-        createdAt: companyMembers.createdAt,
-        userName: users.name,
-        userEmail: users.email,
-        userAvatar: users.avatar,
-      })
-      .from(companyMembers)
-      .leftJoin(users, eq(companyMembers.userId, users.id))
-      .where(eq(companyMembers.companyId, ctx.companyId))
-
-    // Branch-level members (chef/runner)
-    const companyBranchIds = await db
-      .select({ id: branches.id, name: branches.name })
-      .from(branches)
-      .where(eq(branches.companyId, ctx.companyId))
+    // Fetch company members and branch list in parallel
+    const [companyMemberRows, companyBranchIds] = await Promise.all([
+      db
+        .select({
+          id: companyMembers.id,
+          userId: companyMembers.userId,
+          role: companyMembers.role,
+          createdAt: companyMembers.createdAt,
+          userName: users.name,
+          userEmail: users.email,
+          userAvatar: users.avatar,
+        })
+        .from(companyMembers)
+        .leftJoin(users, eq(companyMembers.userId, users.id))
+        .where(eq(companyMembers.companyId, ctx.companyId)),
+      db
+        .select({ id: branches.id, name: branches.name })
+        .from(branches)
+        .where(eq(branches.companyId, ctx.companyId)),
+    ])
 
     const branchIds = companyBranchIds.map((b) => b.id)
     const branchNameMap = Object.fromEntries(companyBranchIds.map((b) => [b.id, b.name]))

@@ -242,33 +242,38 @@ export const getAllIssuances = createServerFn({ method: 'GET' })
     await getAuthContext()
     const offset = (page - 1) * pageSize
 
-    const allRows = await db
-      .select({
-        id: inventoryTransactions.id,
-        quantityStock: inventoryTransactions.quantityStock,
-        method: inventoryTransactions.method,
-        station: inventoryTransactions.station,
-        createdAt: inventoryTransactions.createdAt,
-        productName: products.name,
-        stockUnit: products.stockUnit,
-        issuedBy: users.name,
-      })
-      .from(inventoryTransactions)
-      .leftJoin(products, eq(inventoryTransactions.productId, products.id))
-      .leftJoin(users, eq(inventoryTransactions.createdBy, users.id))
-      .where(
-        and(
-          eq(inventoryTransactions.branchId, branchId),
-          eq(inventoryTransactions.type, 'ISSUE'),
-        ),
-      )
-      .orderBy(desc(inventoryTransactions.createdAt))
+    const conditions = and(
+      eq(inventoryTransactions.branchId, branchId),
+      eq(inventoryTransactions.type, 'ISSUE'),
+    )
 
-    const total = allRows.length
-    const paginated = allRows.slice(offset, offset + pageSize)
+    const [countResult, rows] = await Promise.all([
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(inventoryTransactions)
+        .where(conditions),
+      db
+        .select({
+          id: inventoryTransactions.id,
+          quantityStock: inventoryTransactions.quantityStock,
+          method: inventoryTransactions.method,
+          station: inventoryTransactions.station,
+          createdAt: inventoryTransactions.createdAt,
+          productName: products.name,
+          stockUnit: products.stockUnit,
+          issuedBy: users.name,
+        })
+        .from(inventoryTransactions)
+        .leftJoin(products, eq(inventoryTransactions.productId, products.id))
+        .leftJoin(users, eq(inventoryTransactions.createdBy, users.id))
+        .where(conditions)
+        .orderBy(desc(inventoryTransactions.createdAt))
+        .limit(pageSize)
+        .offset(offset),
+    ])
 
     return {
-      items: paginated.map((r) => ({
+      items: rows.map((r) => ({
         id: r.id,
         productName: r.productName ?? 'Unknown',
         stockUnit: r.stockUnit ?? '',
@@ -278,7 +283,7 @@ export const getAllIssuances = createServerFn({ method: 'GET' })
         method: r.method,
         issuedBy: r.issuedBy ?? 'System',
       })),
-      total,
+      total: countResult[0]?.count ?? 0,
       page,
       pageSize,
     }

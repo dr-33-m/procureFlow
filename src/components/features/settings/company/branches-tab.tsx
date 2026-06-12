@@ -69,7 +69,7 @@ export function BranchesTab() {
   const [newBranchName, setNewBranchName] = useState('')
   const [showInput, setShowInput] = useState(false)
 
-  const { data: branches = [], isLoading } = useCompanyBranches()
+  const { data: branches = [] } = useCompanyBranches()
   const renameMutation = useUpdateBranch()
   const createMutation = useCreateBranch()
 
@@ -107,67 +107,61 @@ export function BranchesTab() {
           </Button>
         </div>
 
-        {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          </div>
-        ) : (
-          <div className="px-4 divide-y">
-            {branches.map((branch) => (
-              <BranchRow
-                key={branch.id}
-                branch={branch}
-                onRename={(id, name) => renameMutation.mutate({ id, name })}
-              />
-            ))}
+        <div className="px-4 divide-y">
+          {branches.map((branch) => (
+            <BranchRow
+              key={branch.id}
+              branch={branch}
+              onRename={(id, name) => renameMutation.mutate({ id, name })}
+            />
+          ))}
 
-            {showInput && (
-              <div className="flex items-center gap-2 py-3">
-                <Input
-                  className="h-8 flex-1"
-                  placeholder="Branch name"
-                  value={newBranchName}
-                  onChange={(e) => setNewBranchName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleCreate()
-                    if (e.key === 'Escape') {
-                      setNewBranchName('')
-                      setShowInput(false)
-                    }
-                  }}
-                  autoFocus
-                />
-                <Button
-                  size="sm"
-                  onClick={handleCreate}
-                  disabled={!newBranchName.trim() || createMutation.isPending}
-                >
-                  {createMutation.isPending ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    'Add'
-                  )}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
+          {showInput && (
+            <div className="flex items-center gap-2 py-3">
+              <Input
+                className="h-8 flex-1"
+                placeholder="Branch name"
+                value={newBranchName}
+                onChange={(e) => setNewBranchName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreate()
+                  if (e.key === 'Escape') {
                     setNewBranchName('')
                     setShowInput(false)
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            )}
+                  }
+                }}
+                autoFocus
+              />
+              <Button
+                size="sm"
+                onClick={handleCreate}
+                disabled={!newBranchName.trim() || createMutation.isPending}
+              >
+                {createMutation.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  'Add'
+                )}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setNewBranchName('')
+                  setShowInput(false)
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
 
-            {branches.length === 0 && !showInput && (
-              <p className="py-6 text-center text-sm text-muted-foreground">
-                No branches yet.
-              </p>
-            )}
-          </div>
-        )}
+          {branches.length === 0 && !showInput && (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              No branches yet.
+            </p>
+          )}
+        </div>
       </div>
     </div>
   )

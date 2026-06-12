@@ -23,14 +23,18 @@ export const companies = pgTable('companies', {
 
 // ─── Branches (formerly Hotels) ─────────────────────────────────────────────
 
-export const branches = pgTable('branches', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  companyId: uuid('company_id')
-    .notNull()
-    .references(() => companies.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-})
+export const branches = pgTable(
+  'branches',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => companies.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => [index('idx_branches_company').on(t.companyId)],
+)
 
 // ─── Users ──────────────────────────────────────────────────────────────────
 
@@ -80,24 +84,29 @@ export const branchMembers = pgTable(
   },
   (t) => [
     uniqueIndex('branch_members_branch_user_unique').on(t.branchId, t.userId),
+    index('idx_branch_members_user').on(t.userId),
   ],
 )
 
 // ─── Invite Tokens ──────────────────────────────────────────────────────────
 
-export const inviteTokens = pgTable('invite_tokens', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  companyId: uuid('company_id')
-    .notNull()
-    .references(() => companies.id, { onDelete: 'cascade' }),
-  branchId: uuid('branch_id').references(() => branches.id, { onDelete: 'cascade' }),
-  email: text('email').notNull(),
-  role: text('role').notNull(), // 'admin' | 'chef' | 'runner'
-  token: text('token').unique().notNull(),
-  used: boolean('used').notNull().default(false),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  expiresAt: timestamp('expires_at').notNull(),
-})
+export const inviteTokens = pgTable(
+  'invite_tokens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => companies.id, { onDelete: 'cascade' }),
+    branchId: uuid('branch_id').references(() => branches.id, { onDelete: 'cascade' }),
+    email: text('email').notNull(),
+    role: text('role').notNull(), // 'admin' | 'chef' | 'runner'
+    token: text('token').unique().notNull(),
+    used: boolean('used').notNull().default(false),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    expiresAt: timestamp('expires_at').notNull(),
+  },
+  (t) => [index('idx_invite_tokens_company').on(t.companyId)],
+)
 
 // ─── Sessions ───────────────────────────────────────────────────────────────
 
@@ -157,25 +166,32 @@ export const products = pgTable(
     leadTimeDays: integer('lead_time_days'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
-  (t) => [index('idx_products_barcode').on(t.barcode)],
+  (t) => [
+    index('idx_products_barcode').on(t.barcode),
+    index('idx_products_branch').on(t.branchId),
+  ],
 )
 
 // ─── Product Suppliers ────────────────────────────────────────────────────────
 
-export const productSuppliers = pgTable('product_suppliers', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  productId: uuid('product_id')
-    .notNull()
-    .references(() => products.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  pricePerUnit: numeric('price_per_unit', { precision: 10, scale: 2 }),
-  // 'purchase' | 'stock' | 'base' — which level pricePerUnit is expressed at.
-  // e.g. pricePerUnit=12, priceUnit='purchase' means $12/box.
-  priceUnit: text('price_unit').notNull().default('stock'),
-  // Optional per-supplier lead time override (days).
-  leadTimeDays: integer('lead_time_days'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-})
+export const productSuppliers = pgTable(
+  'product_suppliers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    productId: uuid('product_id')
+      .notNull()
+      .references(() => products.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    pricePerUnit: numeric('price_per_unit', { precision: 10, scale: 2 }),
+    // 'purchase' | 'stock' | 'base' — which level pricePerUnit is expressed at.
+    // e.g. pricePerUnit=12, priceUnit='purchase' means $12/box.
+    priceUnit: text('price_unit').notNull().default('stock'),
+    // Optional per-supplier lead time override (days).
+    leadTimeDays: integer('lead_time_days'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => [index('idx_product_suppliers_product').on(t.productId)],
+)
 
 // ─── Shopping Lists ──────────────────────────────────────────────────────────
 
@@ -205,40 +221,49 @@ export const shoppingLists = pgTable('shopping_lists', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at'),
   completedAt: timestamp('completed_at'),
-})
+}, (t) => [
+  index('idx_shopping_lists_branch_status').on(t.branchId, t.status),
+])
 
 // ─── Shopping List Items ─────────────────────────────────────────────────────
 
 // All quantity fields are interpreted in the product's stockUnit.
-export const shoppingListItems = pgTable('shopping_list_items', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  shoppingListId: uuid('shopping_list_id')
-    .notNull()
-    .references(() => shoppingLists.id, { onDelete: 'cascade' }),
-  productId: uuid('product_id').references(() => products.id),
-  requestedQuantity: numeric('requested_quantity', {
-    precision: 10,
-    scale: 2,
-  }).notNull(),
-  purchasedQuantity: numeric('purchased_quantity', {
-    precision: 10,
-    scale: 2,
-  }).default('0'),
-  receivedQuantity: numeric('received_quantity', {
-    precision: 10,
-    scale: 2,
-  }).default('0'),
-  pricePerStockUnit: numeric('price_per_stock_unit', {
-    precision: 10,
-    scale: 2,
-  }).default('0'),
-  status: text('status').notNull().default('pending'),
-  // Audit: which unit the requester entered ('purchase' | 'stock'). Stored qty is always stock.
-  requestedUnit: text('requested_unit').default('stock'),
-  updatedBy: uuid('updated_by').references(() => users.id),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at'),
-})
+export const shoppingListItems = pgTable(
+  'shopping_list_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    shoppingListId: uuid('shopping_list_id')
+      .notNull()
+      .references(() => shoppingLists.id, { onDelete: 'cascade' }),
+    productId: uuid('product_id').references(() => products.id),
+    requestedQuantity: numeric('requested_quantity', {
+      precision: 10,
+      scale: 2,
+    }).notNull(),
+    purchasedQuantity: numeric('purchased_quantity', {
+      precision: 10,
+      scale: 2,
+    }).default('0'),
+    receivedQuantity: numeric('received_quantity', {
+      precision: 10,
+      scale: 2,
+    }).default('0'),
+    pricePerStockUnit: numeric('price_per_stock_unit', {
+      precision: 10,
+      scale: 2,
+    }).default('0'),
+    status: text('status').notNull().default('pending'),
+    // Audit: which unit the requester entered ('purchase' | 'stock'). Stored qty is always stock.
+    requestedUnit: text('requested_unit').default('stock'),
+    updatedBy: uuid('updated_by').references(() => users.id),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at'),
+  },
+  (t) => [
+    index('idx_shopping_list_items_list').on(t.shoppingListId),
+    index('idx_shopping_list_items_product').on(t.productId),
+  ],
+)
 
 // ─── Inventory ───────────────────────────────────────────────────────────────
 

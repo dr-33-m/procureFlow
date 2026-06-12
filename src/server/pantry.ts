@@ -1,6 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import { db, inventory, products, productSuppliers } from '@/db'
-import { eq, and, sql, ilike, inArray } from 'drizzle-orm'
+import { eq, and, sql, ilike, inArray, asc, desc } from 'drizzle-orm'
 import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
 import { pricePerStockUnit, toStockQty, type ProductPricing } from '@/server/lib/pricing'
 import { getAuthContext, requireRole } from '@/server/auth/context'
@@ -13,28 +13,37 @@ export const getPantryStats = createServerFn({ method: 'GET' })
   .handler(async ({ data: branchId }) => {
     await getAuthContext()
 
-    const rows = await db
-      .select({
-        quantity: inventory.quantity,
-        stockUnit: products.stockUnit,
-        purchaseUnit: products.purchaseUnit,
-        purchasePackSize: products.purchasePackSize,
-        purchasePrice: products.purchasePrice,
-        baseUnit: products.baseUnit,
-        baseUnitsPerStock: products.baseUnitsPerStock,
-      })
-      .from(inventory)
-      .leftJoin(products, eq(inventory.productId, products.id))
-      .where(eq(inventory.branchId, branchId))
+    const [counts, pricingRows] = await Promise.all([
+      db
+        .select({
+          totalSkus: sql<number>`count(*)::int`,
+          outOfStockCount: sql<number>`count(*) filter (where ${inventory.quantity}::numeric = 0)::int`,
+          lowStockCount: sql<number>`count(*) filter (where ${inventory.quantity}::numeric > 0 and ${inventory.quantity}::numeric <= ${LOW_STOCK_THRESHOLD})::int`,
+        })
+        .from(inventory)
+        .where(eq(inventory.branchId, branchId)),
+      db
+        .select({
+          quantity: inventory.quantity,
+          stockUnit: products.stockUnit,
+          purchaseUnit: products.purchaseUnit,
+          purchasePackSize: products.purchasePackSize,
+          purchasePrice: products.purchasePrice,
+          baseUnit: products.baseUnit,
+          baseUnitsPerStock: products.baseUnitsPerStock,
+        })
+        .from(inventory)
+        .leftJoin(products, eq(inventory.productId, products.id))
+        .where(eq(inventory.branchId, branchId)),
+    ])
 
-    const totalSkus = rows.length
-    const outOfStockCount = rows.filter((r) => parseFloat(r.quantity ?? '0') === 0).length
-    const lowStockCount = rows.filter(
-      (r) =>
-        parseFloat(r.quantity ?? '0') > 0 &&
-        parseFloat(r.quantity ?? '0') <= LOW_STOCK_THRESHOLD,
-    ).length
-    const inventoryValue = rows.reduce((sum, r) => {
+    const { totalSkus, outOfStockCount, lowStockCount } = counts[0] ?? {
+      totalSkus: 0,
+      outOfStockCount: 0,
+      lowStockCount: 0,
+    }
+
+    const inventoryValue = pricingRows.reduce((sum, r) => {
       const qty = parseFloat(r.quantity ?? '0')
       const pricing: ProductPricing = {
         stockUnit: r.stockUnit ?? '',
@@ -72,43 +81,49 @@ export const getInventoryItems = createServerFn({ method: 'GET' })
     if (category && category !== 'all') conditions.push(eq(products.category, category))
     if (q) conditions.push(ilike(products.name, `%${q}%`))
 
-    const allRows = await db
-      .select({
-        id: inventory.id,
-        branchId: inventory.branchId,
-        productId: inventory.productId,
-        quantity: inventory.quantity,
-        updatedAt: inventory.updatedAt,
-        productName: products.name,
-        productCategory: products.category,
-        productSku: products.barcode,
-        parPerGuest: products.parPerGuest,
-        parPerGuestUnit: products.parPerGuestUnit,
-        stockUnit: products.stockUnit,
-        purchaseUnit: products.purchaseUnit,
-        purchasePackSize: products.purchasePackSize,
-        purchasePrice: products.purchasePrice,
-        baseUnit: products.baseUnit,
-        baseUnitsPerStock: products.baseUnitsPerStock,
-        servingUnit: products.servingUnit,
-        servingSize: products.servingSize,
-      })
-      .from(inventory)
-      .leftJoin(products, eq(inventory.productId, products.id))
-      .where(and(...conditions))
+    const orderBy =
+      sortBy === 'quantity'
+        ? desc(sql`${inventory.quantity}::numeric`)
+        : asc(products.name)
 
-    const total = allRows.length
+    const [countResult, rows] = await Promise.all([
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(inventory)
+        .leftJoin(products, eq(inventory.productId, products.id))
+        .where(and(...conditions)),
+      db
+        .select({
+          id: inventory.id,
+          branchId: inventory.branchId,
+          productId: inventory.productId,
+          quantity: inventory.quantity,
+          updatedAt: inventory.updatedAt,
+          productName: products.name,
+          productCategory: products.category,
+          productSku: products.barcode,
+          parPerGuest: products.parPerGuest,
+          parPerGuestUnit: products.parPerGuestUnit,
+          stockUnit: products.stockUnit,
+          purchaseUnit: products.purchaseUnit,
+          purchasePackSize: products.purchasePackSize,
+          purchasePrice: products.purchasePrice,
+          baseUnit: products.baseUnit,
+          baseUnitsPerStock: products.baseUnitsPerStock,
+          servingUnit: products.servingUnit,
+          servingSize: products.servingSize,
+        })
+        .from(inventory)
+        .leftJoin(products, eq(inventory.productId, products.id))
+        .where(and(...conditions))
+        .orderBy(orderBy)
+        .limit(pageSize)
+        .offset(offset),
+    ])
 
-    const sorted = [...allRows].sort((a, b) => {
-      if (sortBy === 'quantity') {
-        return parseFloat(b.quantity ?? '0') - parseFloat(a.quantity ?? '0')
-      }
-      return (a.productName ?? '').localeCompare(b.productName ?? '')
-    })
+    const total = countResult[0]?.count ?? 0
 
-    const paginated = sorted.slice(offset, offset + pageSize)
-
-    const productIds = paginated
+    const productIds = rows
       .map((r) => r.productId)
       .filter((id): id is string => !!id)
 
@@ -130,7 +145,7 @@ export const getInventoryItems = createServerFn({ method: 'GET' })
     )
 
     return {
-      items: paginated.map((r) => ({
+      items: rows.map((r) => ({
         ...r,
         productName: r.productName ?? 'Unknown',
         productCategory: r.productCategory ?? 'General',
@@ -564,42 +579,29 @@ export const importInventoryFromCSV = createServerFn({ method: 'POST' })
       )
     }
 
-    let imported = 0
+    // Filter valid rows up front
+    const validRows = rows.filter((r) => r.name && r.stockUnit)
+    if (validRows.length === 0) return { success: true, imported: 0 }
 
-    for (const row of rows) {
-      if (!row.name || !row.stockUnit) continue
+    // Batch lookup: fetch all existing products by name in one query
+    const uniqueNames = [...new Set(validRows.map((r) => r.name))]
+    const existingProducts = await db
+      .select({ id: products.id, name: products.name })
+      .from(products)
+      .where(and(eq(products.branchId, branchId), inArray(products.name, uniqueNames)))
+    const existingByName = new Map(existingProducts.map((p) => [p.name, p.id]))
 
-      const existing = await db
-        .select({ id: products.id })
-        .from(products)
-        .where(and(eq(products.branchId, branchId), eq(products.name, row.name)))
-        .then((r) => r[0])
+    // Separate into new vs existing, build batch arrays
+    const toInsert = validRows.filter((r) => !existingByName.has(r.name))
+    const toUpdate = validRows.filter((r) => existingByName.has(r.name))
 
-      let productId: string
-
-      if (existing) {
-        productId = existing.id
-        const updateSet: Record<string, unknown> = {}
-        if (row.parPerGuest != null) updateSet.parPerGuest = row.parPerGuest.toString()
-        if (row.purchasePrice != null) updateSet.purchasePrice = row.purchasePrice.toString()
-        if (row.purchaseUnit) updateSet.purchaseUnit = row.purchaseUnit
-        if (row.purchasePackSize != null)
-          updateSet.purchasePackSize = row.purchasePackSize.toString()
-        if (row.baseUnit) updateSet.baseUnit = row.baseUnit
-        if (row.baseUnitsPerStock != null)
-          updateSet.baseUnitsPerStock = row.baseUnitsPerStock.toString()
-        if (row.servingUnit) updateSet.servingUnit = row.servingUnit
-        if (row.servingSize != null)
-          updateSet.servingSize = row.servingSize.toString()
-        if (row.parPerGuestUnit) updateSet.parPerGuestUnit = row.parPerGuestUnit
-        if (row.barcode) updateSet.barcode = row.barcode
-        if (Object.keys(updateSet).length > 0) {
-          await db.update(products).set(updateSet).where(eq(products.id, productId))
-        }
-      } else {
-        const [newProduct] = await db
-          .insert(products)
-          .values({
+    // Batch insert new products
+    let newProductMap = new Map<string, string>()
+    if (toInsert.length > 0) {
+      const inserted = await db
+        .insert(products)
+        .values(
+          toInsert.map((row) => ({
             branchId,
             name: row.name,
             stockUnit: row.stockUnit,
@@ -616,37 +618,73 @@ export const importInventoryFromCSV = createServerFn({ method: 'POST' })
             servingSize: row.servingSize != null ? row.servingSize.toString() : null,
             parPerGuestUnit: row.parPerGuestUnit || 'stock',
             barcode: row.barcode || null,
-          })
-          .returning()
-        productId = newProduct.id
+          })),
+        )
+        .returning({ id: products.id, name: products.name })
+      newProductMap = new Map(inserted.map((p) => [p.name, p.id]))
+    }
 
-        if (row.supplier) {
-          await db.insert(productSuppliers).values({
+    // Batch insert suppliers for new products that have one
+    const supplierValues = toInsert
+      .filter((r) => r.supplier)
+      .map((r) => ({
+        productId: newProductMap.get(r.name)!,
+        name: r.supplier!,
+        pricePerUnit: r.purchasePrice != null ? r.purchasePrice.toString() : null,
+      }))
+      .filter((s) => s.productId)
+    if (supplierValues.length > 0) {
+      await db.insert(productSuppliers).values(supplierValues)
+    }
+
+    // Batch update existing products in parallel
+    if (toUpdate.length > 0) {
+      await Promise.all(
+        toUpdate.map((row) => {
+          const productId = existingByName.get(row.name)!
+          const updateSet: Record<string, unknown> = {}
+          if (row.parPerGuest != null) updateSet.parPerGuest = row.parPerGuest.toString()
+          if (row.purchasePrice != null) updateSet.purchasePrice = row.purchasePrice.toString()
+          if (row.purchaseUnit) updateSet.purchaseUnit = row.purchaseUnit
+          if (row.purchasePackSize != null)
+            updateSet.purchasePackSize = row.purchasePackSize.toString()
+          if (row.baseUnit) updateSet.baseUnit = row.baseUnit
+          if (row.baseUnitsPerStock != null)
+            updateSet.baseUnitsPerStock = row.baseUnitsPerStock.toString()
+          if (row.servingUnit) updateSet.servingUnit = row.servingUnit
+          if (row.servingSize != null) updateSet.servingSize = row.servingSize.toString()
+          if (row.parPerGuestUnit) updateSet.parPerGuestUnit = row.parPerGuestUnit
+          if (row.barcode) updateSet.barcode = row.barcode
+          if (Object.keys(updateSet).length === 0) return Promise.resolve()
+          return db.update(products).set(updateSet).where(eq(products.id, productId))
+        }),
+      )
+    }
+
+    // Batch upsert inventory in parallel
+    await Promise.all(
+      validRows.map((row) => {
+        const productId = existingByName.get(row.name) ?? newProductMap.get(row.name)
+        if (!productId) return Promise.resolve()
+        return db
+          .insert(inventory)
+          .values({
+            branchId,
             productId,
-            name: row.supplier,
-            pricePerUnit: row.purchasePrice != null ? row.purchasePrice.toString() : null,
-          })
-        }
-      }
-
-      await db
-        .insert(inventory)
-        .values({
-          branchId,
-          productId,
-          quantity: (row.initialQuantity || 0).toString(),
-          updatedAt: new Date(),
-        })
-        .onConflictDoUpdate({
-          target: [inventory.branchId, inventory.productId],
-          set: {
             quantity: (row.initialQuantity || 0).toString(),
             updatedAt: new Date(),
-          },
-        })
+          })
+          .onConflictDoUpdate({
+            target: [inventory.branchId, inventory.productId],
+            set: {
+              quantity: (row.initialQuantity || 0).toString(),
+              updatedAt: new Date(),
+            },
+          })
+      }),
+    )
 
-      imported++
-    }
+    const imported = validRows.length
 
     return { success: true, imported }
   })

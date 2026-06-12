@@ -206,6 +206,11 @@ export const recordReconciliation = createServerFn({ method: 'POST' })
       )
     const stockById = new Map(stockRows.map((s) => [s.id, s]))
 
+    // Build batch arrays for reconciliation items and transactions
+    const reconItemValues: Array<Record<string, unknown>> = []
+    const txnValues: Array<Record<string, unknown>> = []
+    const stockUpdates: Array<{ id: string; status: string; remaining: string }> = []
+
     for (const item of data.items) {
       const sourceStock = stockById.get(item.kitchenStockId)
       // Defensive: skip items where the kitchen_stock row doesn't belong to
@@ -219,7 +224,7 @@ export const recordReconciliation = createServerFn({ method: 'POST' })
       const perGuestUsedStock = item.quantityUsed / data.actualGuestCount
       const perServingUsedStock = item.quantityUsed / data.actualServings
 
-      await db.insert(kitchenReconciliationItems).values({
+      reconItemValues.push({
         reconciliationId: parent.id,
         kitchenStockId: item.kitchenStockId || null,
         productId,
@@ -234,9 +239,8 @@ export const recordReconciliation = createServerFn({ method: 'POST' })
 
       // Mirror RECONCILE rows into inventory_transactions so the consumption
       // query in shopping-lists.ts (and any other reader) sees them through
-      // the existing audit path. quantityStock is the *actual used* amount,
-      // guestCount is the actual count — so the rate inferred is real.
-      await db.insert(inventoryTransactions).values({
+      // the existing audit path.
+      txnValues.push({
         branchId: data.branchId,
         productId,
         type: 'RECONCILE',
@@ -249,24 +253,43 @@ export const recordReconciliation = createServerFn({ method: 'POST' })
         createdBy: ctx.userId,
       })
 
-      // Flip the source kitchen_stock row. Partial reconciliations (where
-      // quantityUsed + waste + leftover < quantityIssued) get 'partial'; full
-      // get 'reconciled'.
+      // Flip the source kitchen_stock row status
       if (item.kitchenStockId && sourceStock) {
         const totalAccounted =
           item.quantityUsed + (item.quantityWaste ?? 0) + (item.quantityLeftover ?? 0)
         const issued = parseFloat(sourceStock.quantityIssued)
         const newStatus = totalAccounted >= issued * 0.99 ? 'reconciled' : 'partial'
         const newRemaining = Math.max(0, issued - totalAccounted)
-        await db
-          .update(kitchenStock)
-          .set({
-            status: newStatus,
-            quantityRemaining: newRemaining.toString(),
-            reconciledAt: new Date(),
-          })
-          .where(eq(kitchenStock.id, item.kitchenStockId))
+        stockUpdates.push({
+          id: item.kitchenStockId,
+          status: newStatus,
+          remaining: newRemaining.toString(),
+        })
       }
+    }
+
+    // Batch insert reconciliation items + transactions in parallel
+    if (reconItemValues.length > 0) {
+      await Promise.all([
+        db.insert(kitchenReconciliationItems).values(reconItemValues as never),
+        db.insert(inventoryTransactions).values(txnValues as never),
+      ])
+    }
+
+    // Batch update kitchen_stock statuses in parallel
+    if (stockUpdates.length > 0) {
+      await Promise.all(
+        stockUpdates.map((u) =>
+          db
+            .update(kitchenStock)
+            .set({
+              status: u.status,
+              quantityRemaining: u.remaining,
+              reconciledAt: new Date(),
+            })
+            .where(eq(kitchenStock.id, u.id)),
+        ),
+      )
     }
 
     return { ok: true, reconciliationId: parent.id, reorderRatio }

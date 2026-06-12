@@ -10,7 +10,7 @@ export function GeneralTab() {
   const auth = useAuth()
   const isOwner = auth?.userRole === 'owner'
 
-  const { data: company, isLoading } = useCompany()
+  const { data: company } = useCompany()
   const [name, setName] = useState('')
   const [bio, setBio] = useState('')
   const [initialized, setInitialized] = useState(false)
@@ -22,14 +22,6 @@ export function GeneralTab() {
   }
 
   const mutation = useUpdateCompany()
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
 
   const isDirty =
     name.trim() !== (company?.name ?? '') || bio.trim() !== (company?.bio ?? '')

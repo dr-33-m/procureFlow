@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Loader2, UserPlus, Trash2, Clock } from 'lucide-react'
+import { UserPlus, Trash2, Clock } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -69,7 +69,7 @@ export function MembersTab() {
   const { canManageMembers } = usePermissions()
   const [inviteOpen, setInviteOpen] = useState(false)
 
-  const { data: members = [], isLoading } = useMembers()
+  const { data: members = [] } = useMembers()
   const { data: pendingInvites = [] } = usePendingInvites()
   const removeMutation = useRemoveMember()
 
@@ -102,105 +102,99 @@ export function MembersTab() {
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {/* Company + branch member cards side by side */}
-          {(companyMembers.length > 0 || branchMembers.length > 0) && (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {companyMembers.length > 0 && (
-                <div className="rounded-lg border bg-card">
-                  <div className="px-4 py-3 border-b">
-                    <h3 className="text-sm font-semibold">Company members</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Owners and admins — access to all branches.
-                    </p>
-                  </div>
-                  <div className="px-4 divide-y">
-                    {companyMembers.map((member) => (
-                      <MemberRow
-                        key={member.id}
-                        member={member}
-                        canRemove={canRemoveMember(member)}
-                        onRemove={() =>
-                          removeMutation.mutate({ memberId: member.id, level: 'company' })
-                        }
-                      />
-                    ))}
-                  </div>
+      <div className="space-y-6">
+        {/* Company + branch member cards side by side */}
+        {(companyMembers.length > 0 || branchMembers.length > 0) && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {companyMembers.length > 0 && (
+              <div className="rounded-lg border bg-card">
+                <div className="px-4 py-3 border-b">
+                  <h3 className="text-sm font-semibold">Company members</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Owners and admins — access to all branches.
+                  </p>
                 </div>
-              )}
-
-              {branchMembers.length > 0 && (
-                <div className="rounded-lg border bg-card">
-                  <div className="px-4 py-3 border-b">
-                    <h3 className="text-sm font-semibold">Branch members</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Chefs and runners — assigned to a specific branch.
-                    </p>
-                  </div>
-                  <div className="px-4 divide-y">
-                    {branchMembers.map((member) => (
-                      <MemberRow
-                        key={member.id}
-                        member={member}
-                        canRemove={canRemoveMember(member)}
-                        onRemove={() =>
-                          removeMutation.mutate({ memberId: member.id, level: 'branch' })
-                        }
-                      />
-                    ))}
-                  </div>
+                <div className="px-4 divide-y">
+                  {companyMembers.map((member) => (
+                    <MemberRow
+                      key={member.id}
+                      member={member}
+                      canRemove={canRemoveMember(member)}
+                      onRemove={() =>
+                        removeMutation.mutate({ memberId: member.id, level: 'company' })
+                      }
+                    />
+                  ))}
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
 
-          {members.length === 0 && (
-            <div className="rounded-lg border border-dashed bg-card p-8 text-center">
-              <p className="text-sm text-muted-foreground">
-                No team members yet. Invite your first member to get started.
+            {branchMembers.length > 0 && (
+              <div className="rounded-lg border bg-card">
+                <div className="px-4 py-3 border-b">
+                  <h3 className="text-sm font-semibold">Branch members</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Chefs and runners — assigned to a specific branch.
+                  </p>
+                </div>
+                <div className="px-4 divide-y">
+                  {branchMembers.map((member) => (
+                    <MemberRow
+                      key={member.id}
+                      member={member}
+                      canRemove={canRemoveMember(member)}
+                      onRemove={() =>
+                        removeMutation.mutate({ memberId: member.id, level: 'branch' })
+                      }
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {members.length === 0 && (
+          <div className="rounded-lg border border-dashed bg-card p-8 text-center">
+            <p className="text-sm text-muted-foreground">
+              No team members yet. Invite your first member to get started.
+            </p>
+          </div>
+        )}
+
+        {pendingInvites.length > 0 && (
+          <div className="rounded-lg border bg-card">
+            <div className="px-4 py-3 border-b">
+              <h3 className="text-sm font-semibold">Pending invites</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                These tokens haven't been redeemed yet.
               </p>
             </div>
-          )}
-
-          {pendingInvites.length > 0 && (
-            <div className="rounded-lg border bg-card">
-              <div className="px-4 py-3 border-b">
-                <h3 className="text-sm font-semibold">Pending invites</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  These tokens haven't been redeemed yet.
-                </p>
-              </div>
-              <div className="px-4 divide-y">
-                {pendingInvites.map((invite) => (
-                  <div key={invite.id} className="flex items-center gap-3 py-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted shrink-0">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{invite.email}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {invite.branchName ? `${invite.branchName} · ` : ''}
-                        Expires {new Date(invite.expiresAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <Badge
-                      variant="outline"
-                      className={`text-xs capitalize shrink-0 ${ROLE_COLORS[invite.role as UserRole]}`}
-                    >
-                      {invite.role}
-                    </Badge>
+            <div className="px-4 divide-y">
+              {pendingInvites.map((invite) => (
+                <div key={invite.id} className="flex items-center gap-3 py-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted shrink-0">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
                   </div>
-                ))}
-              </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{invite.email}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {invite.branchName ? `${invite.branchName} · ` : ''}
+                      Expires {new Date(invite.expiresAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={`text-xs capitalize shrink-0 ${ROLE_COLORS[invite.role as UserRole]}`}
+                  >
+                    {invite.role}
+                  </Badge>
+                </div>
+              ))}
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
 
       <InviteDialog open={inviteOpen} onOpenChange={setInviteOpen} />
     </div>
