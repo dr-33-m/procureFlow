@@ -11,14 +11,45 @@ export const getDashboardStats = createServerFn({ method: 'GET' })
   .handler(async ({ data: branchId }): Promise<DashboardStats> => {
     await getAuthContext()
 
-    const invRows = await db
-      .select({ quantity: inventory.quantity })
-      .from(inventory)
-      .where(eq(inventory.branchId, branchId))
+    // One inventory scan (joined with products) serves both the stock-level
+    // counts and the valuation. Categories + active lists run alongside it.
+    const [valRows, catRows, activeListRows] = await Promise.all([
+      db
+        .select({
+          quantity: inventory.quantity,
+          stockUnit: products.stockUnit,
+          purchaseUnit: products.purchaseUnit,
+          purchasePackSize: products.purchasePackSize,
+          purchasePrice: products.purchasePrice,
+          baseUnit: products.baseUnit,
+          baseUnitsPerStock: products.baseUnitsPerStock,
+        })
+        .from(inventory)
+        .leftJoin(products, eq(inventory.productId, products.id))
+        .where(eq(inventory.branchId, branchId)),
+      db
+        .selectDistinct({ category: products.category })
+        .from(products)
+        .where(eq(products.branchId, branchId)),
+      db
+        .select({ id: shoppingLists.id, totalValue: shoppingLists.totalValue })
+        .from(shoppingLists)
+        .where(
+          and(
+            eq(shoppingLists.branchId, branchId),
+            inArray(shoppingLists.status, [
+              'pending',
+              'shopping',
+              'in_review',
+              'on_hold',
+            ]),
+          ),
+        ),
+    ])
 
-    const totalItems = invRows.length
-    const outOfStock = invRows.filter((r) => parseFloat(r.quantity ?? '0') === 0).length
-    const lowStock = invRows.filter(
+    const totalItems = valRows.length
+    const outOfStock = valRows.filter((r) => parseFloat(r.quantity ?? '0') === 0).length
+    const lowStock = valRows.filter(
       (r) =>
         parseFloat(r.quantity ?? '0') > 0 &&
         parseFloat(r.quantity ?? '0') <= LOW_STOCK_THRESHOLD,
@@ -29,25 +60,7 @@ export const getDashboardStats = createServerFn({ method: 'GET' })
     const lowStockPct = totalItems ? Math.round((lowStock / totalItems) * 100) : 0
     const outOfStockPct = totalItems ? Math.round((outOfStock / totalItems) * 100) : 0
 
-    const catRows = await db
-      .selectDistinct({ category: products.category })
-      .from(products)
-      .where(eq(products.branchId, branchId))
     const totalCategories = catRows.length
-
-    const valRows = await db
-      .select({
-        quantity: inventory.quantity,
-        stockUnit: products.stockUnit,
-        purchaseUnit: products.purchaseUnit,
-        purchasePackSize: products.purchasePackSize,
-        purchasePrice: products.purchasePrice,
-        baseUnit: products.baseUnit,
-        baseUnitsPerStock: products.baseUnitsPerStock,
-      })
-      .from(inventory)
-      .leftJoin(products, eq(inventory.productId, products.id))
-      .where(eq(inventory.branchId, branchId))
 
     const totalValuation = valRows.reduce((sum, r) => {
       const qty = parseFloat(r.quantity ?? '0')
@@ -63,16 +76,6 @@ export const getDashboardStats = createServerFn({ method: 'GET' })
       }
       return sum + qty * pricePerStockUnit(pricing)
     }, 0)
-
-    const activeListRows = await db
-      .select({ id: shoppingLists.id, totalValue: shoppingLists.totalValue })
-      .from(shoppingLists)
-      .where(
-        and(
-          eq(shoppingLists.branchId, branchId),
-          inArray(shoppingLists.status, ['pending', 'shopping', 'in_review', 'on_hold']),
-        ),
-      )
 
     const activeShoppingLists = activeListRows.length
     const activeListsValue = activeListRows.reduce(

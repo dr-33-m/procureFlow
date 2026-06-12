@@ -6,23 +6,23 @@ import {
 } from '@/lib/query-manager/kitchen/options'
 import { kitchenKeys, type KitchenStockParams } from '@/lib/query-manager/kitchen/keys'
 import { recordReconciliation } from '@/server/kitchen'
-import { useBranchContext } from '@/stores/branch-context'
+import { useActiveBranchId } from '@/hooks/use-active-branch'
 
 export function useKitchenStock(
   params: Omit<KitchenStockParams, 'branchId'> = {},
 ) {
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
   return useQuery(listKitchenStockOptions({ ...params, branchId }))
 }
 
 export function useReconciliationHistory() {
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
   return useQuery(getReconciliationHistoryOptions(branchId))
 }
 
 export function useRecordReconciliation() {
   const queryClient = useQueryClient()
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
 
   return useMutation({
     mutationFn: (

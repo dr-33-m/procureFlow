@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   ArrowLeft,
 } from 'lucide-react'
-import { AppLayout } from '@/components/layout/app-layout'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -61,7 +60,7 @@ const URGENCY_CONFIG = {
   ok:       { label: 'OK',       icon: CheckCircle2,   className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' },
 }
 
-const routeApi = getRouteApi('/shopping-lists/$id/edit')
+const routeApi = getRouteApi('/_app/shopping-lists/$id/edit')
 
 export function EditDraftPage() {
   const { id } = routeApi.useParams()
@@ -185,7 +184,7 @@ export function EditDraftPage() {
   if (!list) return null
 
   return (
-    <AppLayout>
+    <>
       <PageHeader
         title={`Edit Draft: ${list.name}`}
         description="Update this draft and send it when ready."
@@ -529,6 +528,6 @@ export function EditDraftPage() {
           </div>
         </div>
       </div>
-    </AppLayout>
+    </>
   )
 }

@@ -11,7 +11,7 @@ import {
   users,
   branchMembers,
 } from '@/db'
-import { eq, sql, and, count } from 'drizzle-orm'
+import { eq, sql, and, count, inArray } from 'drizzle-orm'
 import { pricePerStockUnit, type ProductPricing } from '@/server/lib/pricing'
 import { getAuthContext, requireRole } from '@/server/auth/context'
 import type { ReceivingListSummary, ReceivingListDetail } from '@/types'
@@ -106,35 +106,44 @@ export const getReceivingLists = createServerFn({ method: 'GET' })
       )
       .orderBy(sql`${shoppingLists.updatedAt} DESC NULLS LAST`)
 
-    const itemCounts = await db
-      .select({
-        shoppingListId: shoppingListItems.shoppingListId,
-        total: count(),
-      })
-      .from(shoppingListItems)
-      .groupBy(shoppingListItems.shoppingListId)
+    if (lists.length === 0) return []
+    const listIds = lists.map((l) => l.id)
+
+    // Scope item counts to just the lists we're returning (was a full-table
+    // scan across every branch), and run them alongside the member lookup.
+    const [itemCounts, verifyItems, memberRows] = await Promise.all([
+      db
+        .select({
+          shoppingListId: shoppingListItems.shoppingListId,
+          total: count(),
+        })
+        .from(shoppingListItems)
+        .where(inArray(shoppingListItems.shoppingListId, listIds))
+        .groupBy(shoppingListItems.shoppingListId),
+      db
+        .select({
+          shoppingListId: shoppingListItems.shoppingListId,
+          receivedQuantity: shoppingListItems.receivedQuantity,
+        })
+        .from(shoppingListItems)
+        .where(inArray(shoppingListItems.shoppingListId, listIds)),
+      db
+        .select({ userId: branchMembers.userId, name: users.name })
+        .from(branchMembers)
+        .leftJoin(users, eq(branchMembers.userId, users.id))
+        .where(eq(branchMembers.branchId, branchId)),
+    ])
+
     const totalMap = Object.fromEntries(itemCounts.map((r) => [r.shoppingListId, r.total]))
 
-    const allItems = await db
-      .select({
-        shoppingListId: shoppingListItems.shoppingListId,
-        receivedQuantity: shoppingListItems.receivedQuantity,
-      })
-      .from(shoppingListItems)
     const verifiedMap: Record<string, number> = {}
-    for (const item of allItems) {
+    for (const item of verifyItems) {
       const received = parseFloat(item.receivedQuantity ?? '0')
       if (received > 0) {
         verifiedMap[item.shoppingListId] = (verifiedMap[item.shoppingListId] ?? 0) + 1
       }
     }
 
-    // Get members for this branch to resolve runner names
-    const memberRows = await db
-      .select({ userId: branchMembers.userId, name: users.name })
-      .from(branchMembers)
-      .leftJoin(users, eq(branchMembers.userId, users.id))
-      .where(eq(branchMembers.branchId, branchId))
     const memberMap = Object.fromEntries(
       memberRows.map((r) => [r.userId, r.name ?? '']),
     )

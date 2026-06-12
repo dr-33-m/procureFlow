@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router'
 import { Plus, EggFried } from 'lucide-react'
-import { AppLayout } from '@/components/layout/app-layout'
 import { PageHeader } from '@/components/ui/page-header'
 import { DataTable } from '@/components/ui/data-table'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -31,7 +30,7 @@ const STATUS_LABELS: Record<StatusFilter, string> = {
   completed: 'Completed',
 }
 
-const routeApi = getRouteApi('/shopping-lists/')
+const routeApi = getRouteApi('/_app/shopping-lists/')
 
 export function ShoppingListsPage() {
   const { filter } = routeApi.useSearch()
@@ -52,7 +51,7 @@ export function ShoppingListsPage() {
   const filtered = activeFilter === 'all' ? lists : lists.filter((l) => l.status === activeFilter)
 
   return (
-    <AppLayout>
+    <>
       <PageHeader
         title="Shopping Lists"
         breadcrumb={[{ label: 'Procurement' }, { label: 'Lists' }]}
@@ -157,6 +156,6 @@ export function ShoppingListsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AppLayout>
+    </>
   )
 }

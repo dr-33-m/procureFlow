@@ -5,7 +5,7 @@ type CreateListSearch = {
   ai?: boolean
 }
 
-export const Route = createFileRoute('/shopping-lists/create')({
+export const Route = createFileRoute('/_app/shopping-lists/create')({
   validateSearch: (search: Record<string, unknown>): CreateListSearch => ({
     ai: search.ai === true || search.ai === 'true' ? true : undefined,
   }),

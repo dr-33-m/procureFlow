@@ -1,6 +1,5 @@
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, Download, PackageMinus } from 'lucide-react'
-import { AppLayout } from '@/components/layout/app-layout'
 import { DataTable, type ColumnDef } from '@/components/ui/data-table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -13,7 +12,7 @@ import { useAllIssuances } from '@/hooks/use-issuance'
 import { formatDate, formatTime, formatQuantity } from '@/lib/format'
 
 const PAGE_SIZE = 20
-const routeApi = getRouteApi('/issuance/activity')
+const routeApi = getRouteApi('/_app/issuance/activity')
 
 type ActivityRow = {
   id: string
@@ -96,7 +95,7 @@ export function ActivityPage() {
     navigate({ search: (prev) => ({ ...prev, page: p }) })
 
   return (
-    <AppLayout>
+    <>
       <>
         {/* Header */}
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -214,6 +213,6 @@ export function ActivityPage() {
           </div>
         )}
       </>
-    </AppLayout>
+    </>
   )
 }

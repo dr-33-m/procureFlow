@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Download, EggFried, Plus } from 'lucide-react'
-import { AppLayout } from '@/components/layout/app-layout'
 import { PageHeader } from '@/components/ui/page-header'
 import { StatCard } from '@/components/ui/stat-card'
 import { Button } from '@/components/ui/button'
@@ -27,7 +26,7 @@ export function PantryPage() {
   const { canEditInventory } = usePermissions()
 
   return (
-    <AppLayout>
+    <>
       <>
         <PageHeader
           title="Pantry Inventory"
@@ -149,6 +148,6 @@ export function PantryPage() {
           onClose={() => setGenDialogOpen(false)}
         />
       </>
-    </AppLayout>
+    </>
   )
 }

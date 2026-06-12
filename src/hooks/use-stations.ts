@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { getStations, createStation, deleteStation } from '@/server/stations'
-import { useBranchContext } from '@/stores/branch-context'
+import { useActiveBranchId } from '@/hooks/use-active-branch'
 
 export const stationKeys = {
   all: ['stations'] as const,
@@ -9,7 +9,7 @@ export const stationKeys = {
 }
 
 export function useStations() {
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
   return useQuery({
     queryKey: stationKeys.list(branchId),
     queryFn: () => getStations({ data: branchId }),
@@ -19,7 +19,7 @@ export function useStations() {
 
 export function useCreateStation() {
   const queryClient = useQueryClient()
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
 
   return useMutation({
     mutationFn: (name: string) => createStation({ data: { branchId, name } }),
@@ -35,7 +35,7 @@ export function useCreateStation() {
 
 export function useDeleteStation() {
   const queryClient = useQueryClient()
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
 
   return useMutation({
     mutationFn: (id: string) => deleteStation({ data: { id, branchId } }),

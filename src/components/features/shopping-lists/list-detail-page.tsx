@@ -1,6 +1,5 @@
 import { getRouteApi, Link } from '@tanstack/react-router'
 import { ArrowLeft, ChevronRight, ShoppingCart, Users, Calendar } from 'lucide-react'
-import { AppLayout } from '@/components/layout/app-layout'
 import { DataTable } from '@/components/ui/data-table'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Badge } from '@/components/ui/badge'
@@ -10,7 +9,7 @@ import { useShoppingList } from '@/hooks/use-shopping-lists'
 import { formatCurrencyFull, formatDate } from '@/lib/format'
 import { listDetailColumns } from './list-detail-columns'
 
-const routeApi = getRouteApi('/shopping-lists/$id/')
+const routeApi = getRouteApi('/_app/shopping-lists/$id/')
 
 export function ListDetailPage() {
   const { id } = routeApi.useParams()
@@ -18,7 +17,7 @@ export function ListDetailPage() {
 
   if (!list) {
     return (
-      <AppLayout>
+      <>
         <EmptyState
           title="List not found"
           description="This shopping list may have been deleted or you don't have access."
@@ -28,7 +27,7 @@ export function ListDetailPage() {
             </Link>
           }
         />
-      </AppLayout>
+      </>
     )
   }
 
@@ -40,7 +39,7 @@ export function ListDetailPage() {
   )
 
   return (
-    <AppLayout>
+    <>
       {/* Breadcrumb */}
       <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
         <Link to="/shopping-lists" search={{ filter: undefined }} className="hover:text-foreground transition-colors">
@@ -146,6 +145,6 @@ export function ListDetailPage() {
           </div>
         )}
       </div>
-    </AppLayout>
+    </>
   )
 }

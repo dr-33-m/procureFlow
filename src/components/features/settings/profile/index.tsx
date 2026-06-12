@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { AppLayout } from '@/components/layout/app-layout'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -189,7 +188,7 @@ export function ProfilePage() {
   const avatarSrc = avatar && !avatarPreviewError ? avatar : undefined
 
   return (
-    <AppLayout>
+    <>
       <div className="space-y-6">
         <PageHeader title="Profile" description="Manage your personal details." />
 
@@ -260,6 +259,6 @@ export function ProfilePage() {
           onCancel={() => setDialog(null)}
         />
       )}
-    </AppLayout>
+    </>
   )
 }

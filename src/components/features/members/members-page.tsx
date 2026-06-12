@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { UserPlus, Trash2, Loader2, Clock } from 'lucide-react'
-import { AppLayout } from '@/components/layout/app-layout'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -87,7 +86,7 @@ export function MembersPage() {
   const branchMembers = members.filter((m) => m.level === 'branch')
 
   return (
-    <AppLayout>
+    <>
       <div className="space-y-6 max-w-2xl">
         <PageHeader
           title="Team members"
@@ -201,6 +200,6 @@ export function MembersPage() {
       </div>
 
       <InviteDialog open={inviteOpen} onOpenChange={setInviteOpen} />
-    </AppLayout>
+    </>
   )
 }

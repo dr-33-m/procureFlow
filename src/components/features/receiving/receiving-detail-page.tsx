@@ -11,7 +11,6 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
-import { AppLayout } from '@/components/layout/app-layout'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { DataTable } from '@/components/ui/data-table'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -30,7 +29,7 @@ import { useReceivingConfirmation } from '@/stores/receiving-confirmation'
 import { receivingKeys } from '@/lib/query-manager/receiving/keys'
 import { usePermissions } from '@/hooks/use-permissions'
 
-const routeApi = getRouteApi('/receiving/$listId')
+const routeApi = getRouteApi('/_app/receiving/$listId')
 
 export function ReceivingDetailPage() {
   const { listId } = routeApi.useParams()
@@ -134,7 +133,7 @@ export function ReceivingDetailPage() {
 
   if (!list) {
     return (
-      <AppLayout>
+      <>
         <EmptyState
           title="List not found"
           description="This shopping list may have been deleted or you don't have access."
@@ -145,7 +144,7 @@ export function ReceivingDetailPage() {
             </Button>
           }
         />
-      </AppLayout>
+      </>
     )
   }
 
@@ -214,7 +213,7 @@ export function ReceivingDetailPage() {
   })
 
   return (
-    <AppLayout>
+    <>
       {/* Header */}
       <div className="mb-5">
         <div className="mb-1 flex items-center gap-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
@@ -411,6 +410,6 @@ export function ReceivingDetailPage() {
           </div>
         </div>
       </div>
-    </AppLayout>
+    </>
   )
 }

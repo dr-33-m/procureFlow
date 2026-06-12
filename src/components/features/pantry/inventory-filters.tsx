@@ -9,7 +9,7 @@ import {
 import { SearchInput } from '@/components/ui/search-input'
 import { useCategories } from '@/hooks/use-pantry'
 
-const routeApi = getRouteApi('/pantry/')
+const routeApi = getRouteApi('/_app/pantry/')
 
 export function InventoryFilters() {
   const { category, sortBy, q } = routeApi.useSearch()

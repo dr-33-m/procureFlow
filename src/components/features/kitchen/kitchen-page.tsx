@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { EggFried, History, Clock } from 'lucide-react'
-import { AppLayout } from '@/components/layout/app-layout'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { StatCard } from '@/components/ui/stat-card'
@@ -27,7 +26,7 @@ export function KitchenPage() {
   ).size
 
   return (
-    <AppLayout>
+    <>
       <>
         <PageHeader
           title="Kitchen"
@@ -110,6 +109,6 @@ export function KitchenPage() {
 
         <AIKitchenDrawer open={aiOpen} onOpenChange={setAIOpen} />
       </>
-    </AppLayout>
+    </>
   )
 }

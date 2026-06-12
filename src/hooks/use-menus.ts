@@ -17,10 +17,10 @@ import {
   setDishIngredients,
 } from '@/server/menus'
 import { pantryKeys } from '@/lib/query-manager/pantry/keys'
-import { useBranchContext } from '@/stores/branch-context'
+import { useActiveBranchId } from '@/hooks/use-active-branch'
 
 export function useMenus(params: Omit<MenuListParams, 'branchId'> = {}) {
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
   return useQuery(listMenusOptions({ ...params, branchId }))
 }
 
@@ -34,7 +34,7 @@ export function useMenuReconciliationStats(menuId: string) {
 
 export function useCreateMenu() {
   const queryClient = useQueryClient()
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
 
   return useMutation({
     mutationFn: (data: Omit<Parameters<typeof createMenu>[0]['data'], 'branchId'>) =>
@@ -53,7 +53,7 @@ export function useCreateMenu() {
 // bare products. Invalidates menus (new menus) and pantry (new products).
 export function useCreateMenusFromRecipes() {
   const queryClient = useQueryClient()
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
 
   return useMutation({
     mutationFn: (data: Omit<Parameters<typeof createMenusFromRecipes>[0]['data'], 'branchId'>) =>

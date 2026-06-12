@@ -8,7 +8,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
-const routeApi = getRouteApi('/issuance/')
+const routeApi = getRouteApi('/_app/issuance/')
 
 interface IssuanceFiltersProps {
   categories: string[]

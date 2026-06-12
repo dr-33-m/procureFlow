@@ -19,37 +19,37 @@ import {
   generateDraftFromDefaults,
   setProductBarcode,
 } from '@/server/shopping-lists'
-import { useBranchContext } from '@/stores/branch-context'
+import { useActiveBranchId } from '@/hooks/use-active-branch'
 import type { RestockSuggestion } from '@/types'
 
 export function useShoppingLists() {
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
   return useQuery(getShoppingListsOptions(branchId))
 }
 
 export function useShoppingList(id: string) {
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
   return useQuery(getShoppingListOptions(branchId, id))
 }
 
 export function useProductCatalog() {
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
   return useQuery(getProductCatalogOptions(branchId))
 }
 
 export function useProductsWithStock() {
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
   return useQuery(getProductsWithStockOptions(branchId))
 }
 
 export function useRunners() {
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
   return useQuery(getRunnersOptions(branchId))
 }
 
 export function useCreateShoppingList() {
   const queryClient = useQueryClient()
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
 
   return useMutation({
     mutationFn: (
@@ -67,7 +67,7 @@ export function useCreateShoppingList() {
 
 export function useUpdateShoppingListStatus() {
   const queryClient = useQueryClient()
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
 
   return useMutation({
     mutationFn: (data: { id: string; status: string }) =>
@@ -85,7 +85,7 @@ export function useUpdateShoppingListStatus() {
 
 export function useUpdateShoppingListItem(listId: string) {
   const queryClient = useQueryClient()
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
 
   return useMutation({
     mutationFn: (data: Parameters<typeof updateShoppingListItem>[0]['data']) =>
@@ -104,7 +104,7 @@ export function useUpdateShoppingListItem(listId: string) {
 
 export function useUpdateShoppingList(listId: string) {
   const queryClient = useQueryClient()
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
 
   return useMutation({
     mutationFn: (
@@ -125,7 +125,7 @@ export function useUpdateShoppingList(listId: string) {
 
 export function useDeleteShoppingList() {
   const queryClient = useQueryClient()
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
 
   return useMutation({
     mutationFn: (id: string) => deleteShoppingList({ data: { id, branchId } }),
@@ -141,7 +141,7 @@ export function useDeleteShoppingList() {
 }
 
 export function useRestockSuggestions() {
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
 
   return useMutation<
     RestockSuggestion[],
@@ -154,7 +154,7 @@ export function useRestockSuggestions() {
 
 export function useGenerateDraftFromDefaults() {
   const queryClient = useQueryClient()
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
 
   return useMutation({
     mutationFn: (name?: string) => generateDraftFromDefaults({ data: { branchId, name } }),
@@ -172,7 +172,7 @@ export function useGenerateDraftFromDefaults() {
 
 export function useSetProductBarcode(listId: string) {
   const queryClient = useQueryClient()
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
 
   return useMutation({
     mutationFn: (data: { productId: string; barcode: string }) =>

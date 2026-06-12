@@ -1,12 +1,11 @@
 import { useNavigate } from '@tanstack/react-router'
-import { AppLayout } from '@/components/layout/app-layout'
 import { PageHeader } from '@/components/ui/page-header'
 import { useAuth } from '@/hooks/use-auth'
 import { GeneralTab } from './general-tab'
 import { PlanTab } from './plan-tab'
 import { BranchesTab } from './branches-tab'
 import { MembersTab } from './members-tab'
-import { Route } from '@/routes/settings/company'
+import { Route } from '@/routes/_app/settings/company'
 
 const VALID_TABS = ['general', 'plan', 'branches', 'members'] as const
 type Tab = (typeof VALID_TABS)[number]
@@ -31,7 +30,7 @@ export function CompanySettingsPage() {
   ]
 
   return (
-    <AppLayout>
+    <>
       <div className="space-y-6">
         <PageHeader
           title="Company"
@@ -61,6 +60,6 @@ export function CompanySettingsPage() {
           {tab === 'members' && <MembersTab />}
         </div>
       </div>
-    </AppLayout>
+    </>
   )
 }

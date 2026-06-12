@@ -26,7 +26,7 @@ import { formatPriceLabel } from '@/server/lib/pricing'
 import type { InventoryWithProduct } from '@/types'
 
 const PAGE_SIZE = 10
-const routeApi = getRouteApi('/pantry/')
+const routeApi = getRouteApi('/_app/pantry/')
 
 function getStockStatus(qty: string | null) {
   const q = parseFloat(qty ?? '0')

@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react'
 import { useChat, fetchServerSentEvents } from '@tanstack/ai-react'
 import { toast } from 'sonner'
-import { useBranchContext } from '@/stores/branch-context'
+import { useActiveBranchId } from '@/hooks/use-active-branch'
 
 type EditorContext = {
   existingItems?: Array<{ productId: string; productName: string; quantity: number }>
@@ -13,7 +13,7 @@ type EditorContext = {
 }
 
 export function useAIShopping(editorContext?: EditorContext) {
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
 
   // Keep refs so the connection callback always reads current values
   // without recreating the connection (which resets chat history)

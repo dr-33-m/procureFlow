@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { getRouteApi, Link } from '@tanstack/react-router'
 import { ExternalLink, EggFried, TrendingUp } from 'lucide-react'
-import { AppLayout } from '@/components/layout/app-layout'
 import { Button } from '@/components/ui/button'
 import { IssuanceFilters } from './issuance-filters'
 import { IssuanceTable } from './issuance-table'
@@ -11,7 +10,7 @@ import { useInventoryForIssuance, useRecentIssuances, useTodayIssuanceStats } fr
 import { usePermissions } from '@/hooks/use-permissions'
 import { formatQuantity, formatTime } from '@/lib/format'
 
-const routeApi = getRouteApi('/issuance/')
+const routeApi = getRouteApi('/_app/issuance/')
 
 export function IssuancePage() {
   const { q, category } = routeApi.useSearch()
@@ -44,7 +43,7 @@ export function IssuancePage() {
   const deltaSign = (todayStats?.deltaPercent ?? 0) >= 0 ? '+' : ''
 
   return (
-    <AppLayout>
+    <>
       {/* Header */}
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -135,6 +134,6 @@ export function IssuancePage() {
       )}
 
       <AIIssuanceDrawer open={aiOpen} onOpenChange={setAIOpen} />
-    </AppLayout>
+    </>
   )
 }

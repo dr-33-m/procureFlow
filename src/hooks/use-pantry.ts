@@ -17,31 +17,31 @@ import {
   createProductSupplier,
   deleteProductSupplier,
 } from '@/server/pantry'
-import { useBranchContext } from '@/stores/branch-context'
+import { useActiveBranchId } from '@/hooks/use-active-branch'
 
 export function usePantryStats() {
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
   return useQuery(getPantryStatsOptions(branchId))
 }
 
 export function useInventoryItems(params: Omit<PantryItemsParams, 'branchId'>) {
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
   return useQuery(getInventoryItemsOptions({ ...params, branchId }))
 }
 
 export function useCategories() {
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
   return useQuery(getCategoriesOptions(branchId))
 }
 
 export function usePantryCatalog() {
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
   return useQuery(getPantryCatalogOptions(branchId))
 }
 
 export function useAddInventoryItem() {
   const queryClient = useQueryClient()
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
 
   return useMutation({
     mutationFn: (data: { productId: string; quantity: number; quantityUnit?: 'stock' | 'purchase' }) =>
@@ -58,7 +58,7 @@ export function useAddInventoryItem() {
 
 export function useUpdateInventoryItem() {
   const queryClient = useQueryClient()
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
 
   return useMutation({
     mutationFn: (data: {
@@ -84,7 +84,7 @@ export function useUpdateInventoryItem() {
 
 export function useDeleteInventoryItem() {
   const queryClient = useQueryClient()
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
 
   return useMutation({
     mutationFn: (inventoryId: string) => deleteInventoryItem({ data: { inventoryId, branchId } }),
@@ -100,7 +100,7 @@ export function useDeleteInventoryItem() {
 
 export function useCreateProduct() {
   const queryClient = useQueryClient()
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
 
   return useMutation({
     mutationFn: (
@@ -120,7 +120,7 @@ export function useCreateProduct() {
 // chef never has to leave the menu to add a missing ingredient.
 export function useCreateProductForIngredient() {
   const queryClient = useQueryClient()
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
 
   return useMutation({
     mutationFn: (data: Omit<Parameters<typeof createProductForIngredient>[0]['data'], 'branchId'>) =>
@@ -167,7 +167,7 @@ export function useDeleteProductSupplier() {
 
 export function useImportInventoryFromCSV() {
   const queryClient = useQueryClient()
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
 
   return useMutation({
     mutationFn: (rows: Omit<Parameters<typeof importInventoryFromCSV>[0]['data'], 'branchId'>) =>

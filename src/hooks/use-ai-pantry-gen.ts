@@ -6,7 +6,7 @@ import { extractMenuFromImages } from '@/server/ai-menu-extract'
 import { applyPantryFromMenus, derivePantryFromMenus } from '@/server/pantry-from-menus'
 import { pantryKeys } from '@/lib/query-manager/pantry/keys'
 import { menuKeys } from '@/lib/query-manager/menus/keys'
-import { useBranchContext } from '@/stores/branch-context'
+import { useActiveBranchId } from '@/hooks/use-active-branch'
 
 type GenerateInput = Omit<Parameters<typeof generatePantryFromMenus>[0]['data'], 'branchId'>
 type CommitInput = Omit<Parameters<typeof commitGeneratedPantry>[0]['data'], 'branchId'>
@@ -27,7 +27,7 @@ export function useExtractMenu() {
 
 // Step 1: ask the AI to structure the user's recipes into a pantry proposal.
 export function useGeneratePantry() {
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
 
   return useMutation({
     mutationFn: (data: GenerateInput) => generatePantryFromMenus({ data: { ...data, branchId } }),
@@ -40,7 +40,7 @@ export function useGeneratePantry() {
 // Step 2: persist the reviewed proposal (products → menus → dishes → recipes).
 export function useCommitPantry() {
   const queryClient = useQueryClient()
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
 
   return useMutation({
     mutationFn: (data: CommitInput) => commitGeneratedPantry({ data: { ...data, branchId } }),
@@ -60,7 +60,7 @@ export function useCommitPantry() {
 // "From existing menus" — derive a pantry proposal deterministically from menus
 // already in the org (no AI; their recipes are already structured).
 export function useDerivePantryFromMenus() {
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
 
   return useMutation({
     mutationFn: (data: DeriveInput) => derivePantryFromMenus({ data: { ...data, branchId } }),
@@ -74,7 +74,7 @@ export function useDerivePantryFromMenus() {
 // opening stock (does not create menus/dishes).
 export function useApplyPantryFromMenus() {
   const queryClient = useQueryClient()
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
 
   return useMutation({
     mutationFn: (data: ApplyInput) => applyPantryFromMenus({ data: { ...data, branchId } }),

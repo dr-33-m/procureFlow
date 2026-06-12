@@ -9,17 +9,21 @@ import {
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { usePermissions } from '@/hooks/use-permissions'
 import { useBranchContext } from '@/stores/branch-context'
-import { useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 
 export function Header() {
   const { canSwitchBranch } = usePermissions()
-  const { activeBranchName, branches, setActiveBranch } = useBranchContext()
-  const queryClient = useQueryClient()
+  const { activeBranchName, branches } = useBranchContext()
+  const navigate = useNavigate()
 
   const handleBranchSwitch = (id: string) => {
-    setActiveBranch(id)
-    // Invalidate all queries so data reloads for the new branch
-    queryClient.invalidateQueries()
+    // Drive the active branch through the URL so route loaders re-run and
+    // prefetch the new branch's data (queries are keyed by branchId).
+    navigate({
+      to: '.',
+      search: (prev) => ({ ...prev, branch: id }),
+      replace: false,
+    })
   }
 
   return (

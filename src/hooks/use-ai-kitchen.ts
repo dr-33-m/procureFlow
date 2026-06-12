@@ -1,10 +1,10 @@
 import { useCallback, useRef } from 'react'
 import { useChat, fetchServerSentEvents } from '@tanstack/ai-react'
 import { toast } from 'sonner'
-import { useBranchContext } from '@/stores/branch-context'
+import { useActiveBranchId } from '@/hooks/use-active-branch'
 
 export function useAIKitchen() {
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
 
   const branchIdRef = useRef(branchId)
   branchIdRef.current = branchId

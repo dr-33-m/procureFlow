@@ -6,15 +6,15 @@ import {
 } from '@/lib/query-manager/receiving/options'
 import { receivingKeys } from '@/lib/query-manager/receiving/keys'
 import { scanItem, updateReceivedQuantity, approveItem, approveList } from '@/server/receiving'
-import { useBranchContext } from '@/stores/branch-context'
+import { useActiveBranchId } from '@/hooks/use-active-branch'
 
 export function useReceivingLists() {
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
   return useQuery(getReceivingListsOptions(branchId))
 }
 
 export function useReceivingList(id: string) {
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
   return useQuery(getReceivingListOptions(branchId, id))
 }
 
@@ -55,7 +55,7 @@ export function useUpdateReceivedQuantity() {
 
 export function useApproveItem() {
   const queryClient = useQueryClient()
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
 
   return useMutation({
     mutationFn: (itemId: string) => approveItem({ data: { itemId, branchId } }),
@@ -71,7 +71,7 @@ export function useApproveItem() {
 
 export function useApproveList() {
   const queryClient = useQueryClient()
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
 
   return useMutation({
     mutationFn: (listId: string) => approveList({ data: { listId, branchId } }),

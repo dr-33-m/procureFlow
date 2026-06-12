@@ -1,13 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { getDashboardStatsOptions, getRecentActivityOptions } from '@/lib/query-manager/dashboard/options'
-import { useBranchContext } from '@/stores/branch-context'
+import { useActiveBranchId } from '@/hooks/use-active-branch'
 
 export function useDashboardStats() {
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
   return useQuery(getDashboardStatsOptions(branchId))
 }
 
 export function useRecentActivity() {
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
   return useQuery(getRecentActivityOptions(branchId))
 }

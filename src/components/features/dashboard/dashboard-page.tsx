@@ -8,7 +8,6 @@ import {
   ChevronRight,
   EggFried,
 } from 'lucide-react'
-import { AppLayout } from '@/components/layout/app-layout'
 import { DataTable, type ColumnDef } from '@/components/ui/data-table'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Button } from '@/components/ui/button'
@@ -62,7 +61,7 @@ export function DashboardPage() {
   const shift = getCurrentShift()
 
   return (
-    <AppLayout>
+    <>
       {/* Page Header */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -228,6 +227,6 @@ export function DashboardPage() {
           }
         />
       </div>
-    </AppLayout>
+    </>
   )
 }

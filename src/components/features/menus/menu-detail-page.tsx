@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, getRouteApi } from '@tanstack/react-router'
 import { ChevronLeft, Plus, Pencil, Trash2 } from 'lucide-react'
-import { AppLayout } from '@/components/layout/app-layout'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -12,7 +11,7 @@ import { DishReconciliationPanel } from './dish-reconciliation-panel'
 import { useMenu, useCreateDish, useDeleteMenu } from '@/hooks/use-menus'
 import { usePermissions } from '@/hooks/use-permissions'
 
-const routeApi = getRouteApi('/menus/$menuId')
+const routeApi = getRouteApi('/_app/menus/$menuId')
 
 export function MenuDetailPage() {
   const { menuId } = routeApi.useParams()
@@ -28,15 +27,15 @@ export function MenuDetailPage() {
 
   if (isLoading) {
     return (
-      <AppLayout>
+      <>
         <p className="text-sm text-muted-foreground">Loading menu…</p>
-      </AppLayout>
+      </>
     )
   }
 
   if (!data) {
     return (
-      <AppLayout>
+      <>
         <EmptyState
           title="Menu not found"
           description="It may have been deleted, or you don't have access."
@@ -46,7 +45,7 @@ export function MenuDetailPage() {
             </Button>
           }
         />
-      </AppLayout>
+      </>
     )
   }
 
@@ -67,7 +66,7 @@ export function MenuDetailPage() {
   }
 
   return (
-    <AppLayout>
+    <>
       <>
         <div className="mb-4">
           <Link
@@ -191,6 +190,6 @@ export function MenuDetailPage() {
           menu={menu}
         />
       </>
-    </AppLayout>
+    </>
   )
 }

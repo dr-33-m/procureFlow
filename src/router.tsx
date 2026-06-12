@@ -1,20 +1,39 @@
 import { createRouter as createTanStackRouter } from '@tanstack/react-router'
+import { QueryClient } from '@tanstack/react-query'
+import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query'
 import { routeTree } from './routeTree.gen'
-import type { AppSessionData } from './server/auth/session'
 
 export type RouterContext = {
-  auth: (AppSessionData & { authenticated: true; needsOnboarding: false }) | null
+  queryClient: QueryClient
 }
 
 export function getRouter() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 30_000,
+        retry: 1,
+      },
+    },
+  })
+
   const router = createTanStackRouter({
     routeTree,
     context: {
-      auth: null,
+      queryClient,
     } satisfies RouterContext,
     scrollRestoration: true,
     defaultPreload: 'intent',
-    defaultPreloadStaleTime: 0,
+    // Show a route's pendingComponent immediately on click so navigation never
+    // blocks on its loader — the clicked page appears at once with a skeleton.
+    // defaultPendingMinMs (500) is left at its default to avoid a skeleton flash
+    // on fast loads.
+    defaultPendingMs: 0,
+  })
+
+  setupRouterSsrQueryIntegration({
+    router,
+    queryClient,
   })
 
   return router

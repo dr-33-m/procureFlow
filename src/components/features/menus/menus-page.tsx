@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { Plus, ChefHat, Coffee, UtensilsCrossed, Wine, Sparkles, EggFried } from 'lucide-react'
-import { AppLayout } from '@/components/layout/app-layout'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -38,7 +37,7 @@ export function MenusPage() {
   )
 
   return (
-    <AppLayout>
+    <>
       <>
         <PageHeader
           title="Menus"
@@ -132,6 +131,6 @@ export function MenusPage() {
 
         <AddMenuWizard open={proclyOpen} startStep="upload" onClose={() => setProclyOpen(false)} />
       </>
-    </AppLayout>
+    </>
   )
 }

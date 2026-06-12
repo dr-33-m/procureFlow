@@ -1,7 +1,6 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { ArrowRight, Loader2, PackageCheck } from 'lucide-react'
-import { AppLayout } from '@/components/layout/app-layout'
 import { PageHeader } from '@/components/ui/page-header'
 import { Progress } from '@/components/ui/progress'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -35,7 +34,7 @@ export function ReceivingListPage() {
   const completed = lists.filter((l) => l.status === 'completed')
 
   return (
-    <AppLayout>
+    <>
       <PageHeader
         title="Receiving & Staging"
         description="Review inbound deliveries and reconcile items against purchase orders."
@@ -188,6 +187,6 @@ export function ReceivingListPage() {
           </div>
         </div>
       )}
-    </AppLayout>
+    </>
   )
 }

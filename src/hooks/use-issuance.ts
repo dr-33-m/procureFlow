@@ -8,31 +8,31 @@ import {
 } from '@/lib/query-manager/issuance/options'
 import { issuanceKeys } from '@/lib/query-manager/issuance/keys'
 import { issueStock } from '@/server/issuance'
-import { useBranchContext } from '@/stores/branch-context'
+import { useActiveBranchId } from '@/hooks/use-active-branch'
 
 export function useInventoryForIssuance() {
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
   return useQuery(getInventoryForIssuanceOptions(branchId))
 }
 
 export function useRecentIssuances() {
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
   return useQuery(getRecentIssuancesOptions(branchId))
 }
 
 export function useTodayIssuanceStats() {
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
   return useQuery(getTodayIssuanceStatsOptions(branchId))
 }
 
 export function useAllIssuances(page: number, pageSize = 20) {
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
   return useQuery(getAllIssuancesOptions(branchId, page, pageSize))
 }
 
 export function useIssueStock() {
   const queryClient = useQueryClient()
-  const branchId = useBranchContext((s) => s.activeBranchId)
+  const branchId = useActiveBranchId()
 
   return useMutation({
     mutationFn: (

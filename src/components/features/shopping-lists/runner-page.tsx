@@ -10,7 +10,6 @@ const BarcodeScanner = lazy(() => {
 })
 import { cn } from '@/lib/utils'
 import { formatCurrencyFull, formatQuantity } from '@/lib/format'
-import { AppLayout } from '@/components/layout/app-layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -123,7 +122,7 @@ export function RunnerPage({ listId }: RunnerPageProps) {
   // Start shopping gate
   if (list.status !== 'shopping') {
     return (
-      <AppLayout>
+      <>
         <div className="flex min-h-[60vh] items-center justify-center p-4">
           <div className="w-full max-w-sm space-y-4 rounded-2xl border bg-card p-6 text-center shadow-sm">
             <h1 className="text-xl font-bold">{list.name}</h1>
@@ -153,12 +152,12 @@ export function RunnerPage({ listId }: RunnerPageProps) {
             </Link>
           </div>
         </div>
-      </AppLayout>
+      </>
     )
   }
 
   return (
-    <AppLayout>
+    <>
       {/* Top nav */}
       <div className="mb-4 flex items-center gap-2">
         <Link to="/shopping-lists/$id" params={{ id: listId }}>
@@ -297,7 +296,7 @@ export function RunnerPage({ listId }: RunnerPageProps) {
           </div>
         </SheetContent>
       </Sheet>
-    </AppLayout>
+    </>
   )
 }
 

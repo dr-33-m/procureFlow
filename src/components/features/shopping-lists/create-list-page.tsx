@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import { Trash2, Plus, ChevronRight, Users, AlertTriangle, Clock, CheckCircle2 } from 'lucide-react'
-import { AppLayout } from '@/components/layout/app-layout'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,7 +22,7 @@ import { formatCurrencyFull, formatQuantity } from '@/lib/format'
 import { pricePerStockUnit } from '@/server/lib/pricing'
 import type { ProductWithStock } from '@/types'
 
-const routeApi = getRouteApi('/shopping-lists/create')
+const routeApi = getRouteApi('/_app/shopping-lists/create')
 
 // Days per period type (used for math and lookback selection)
 const PERIOD_DAYS: Record<string, number> = {
@@ -167,7 +166,7 @@ export function CreateListPage() {
   }
 
   return (
-    <AppLayout>
+    <>
       <PageHeader
         title="Create Shopping List"
         description="Draft a new replenishment order and assign a runner to fulfill requirements."
@@ -575,6 +574,6 @@ export function CreateListPage() {
           avgDailyGuests: avgDailyGuests ? Number(avgDailyGuests) : undefined,
         }}
       />
-    </AppLayout>
+    </>
   )
 }

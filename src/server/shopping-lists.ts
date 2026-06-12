@@ -125,16 +125,17 @@ export const getShoppingList = createServerFn({ method: 'GET' })
 
     if (!list) return null
 
-    const runnerRow = list.assignedTo
-      ? await db
-          .select({ name: users.name })
-          .from(users)
-          .where(eq(users.id, list.assignedTo))
-          .then((r) => r[0])
-      : null
-
-    const items = await db
-      .select({
+    // Runner lookup and items are independent of each other — fetch in parallel.
+    const [runnerRow, items] = await Promise.all([
+      list.assignedTo
+        ? db
+            .select({ name: users.name })
+            .from(users)
+            .where(eq(users.id, list.assignedTo))
+            .then((r) => r[0])
+        : Promise.resolve(undefined),
+      db
+        .select({
         id: shoppingListItems.id,
         shoppingListId: shoppingListItems.shoppingListId,
         productId: shoppingListItems.productId,
@@ -161,7 +162,8 @@ export const getShoppingList = createServerFn({ method: 'GET' })
       })
       .from(shoppingListItems)
       .leftJoin(products, eq(shoppingListItems.productId, products.id))
-      .where(eq(shoppingListItems.shoppingListId, id))
+      .where(eq(shoppingListItems.shoppingListId, id)),
+    ])
 
     const productIds = items.map((i) => i.productId).filter((pid): pid is string => !!pid)
     const supplierRows =
