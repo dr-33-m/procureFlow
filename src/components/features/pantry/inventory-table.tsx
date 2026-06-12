@@ -23,9 +23,12 @@ import { useInventoryItems, useDeleteInventoryItem } from '@/hooks/use-pantry'
 import { formatQuantity } from '@/lib/format'
 import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
 import { formatPriceLabel } from '@/server/lib/pricing'
+import {
+  normalizePantryItemsParams,
+  PANTRY_PAGE_SIZE,
+} from '@/lib/query-manager/pantry/keys'
 import type { InventoryWithProduct } from '@/types'
 
-const PAGE_SIZE = 10
 const routeApi = getRouteApi('/_app/pantry/')
 
 function getStockStatus(qty: string | null) {
@@ -45,21 +48,16 @@ export function InventoryTable({ onEdit }: InventoryTableProps) {
   const deleteMutation = useDeleteInventoryItem()
   const [pendingDelete, setPendingDelete] = useState<InventoryWithProduct | null>(null)
 
-  const params = {
-    page: page ?? 1,
-    pageSize: PAGE_SIZE,
-    category: category ?? 'all',
-    sortBy: sortBy ?? 'name',
-    q: q ?? '',
-  }
+  // Shared normalizer so this query key matches the route loader's prefetch.
+  const params = normalizePantryItemsParams({ page, category, sortBy, q })
 
-  const { data } = useInventoryItems(params)
+  const { data, isPlaceholderData } = useInventoryItems(params)
   const items = data?.items ?? []
   const total = data?.total ?? 0
   const currentPage = page ?? 1
-  const totalPages = Math.ceil(total / PAGE_SIZE)
-  const start = (currentPage - 1) * PAGE_SIZE + 1
-  const end = Math.min(currentPage * PAGE_SIZE, total)
+  const totalPages = Math.ceil(total / PANTRY_PAGE_SIZE)
+  const start = (currentPage - 1) * PANTRY_PAGE_SIZE + 1
+  const end = Math.min(currentPage * PANTRY_PAGE_SIZE, total)
 
   const goToPage = (p: number) =>
     navigate({ search: (prev) => ({ ...prev, page: p }) })
@@ -193,7 +191,11 @@ export function InventoryTable({ onEdit }: InventoryTableProps) {
 
   return (
     <>
-    <div className="rounded-xl border bg-card shadow-sm">
+    <div
+      className={`rounded-xl border bg-card shadow-sm transition-opacity ${
+        isPlaceholderData ? 'opacity-60' : ''
+      }`}
+    >
       <DataTable data={items} columns={columns} />
       {totalPages > 1 && (
         <div className="flex items-center justify-between border-t px-5 py-3">

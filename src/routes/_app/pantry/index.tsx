@@ -1,10 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { PantryPage } from '@/components/features/pantry/pantry-page'
-import { PendingPage } from '@/components/ui/pending-page'
+import { PantrySkeleton } from '@/components/skeletons/pantry-skeleton'
 import {
   getPantryStatsOptions,
   getCategoriesOptions,
+  getInventoryItemsOptions,
 } from '@/lib/query-manager/pantry/options'
+import { normalizePantryItemsParams } from '@/lib/query-manager/pantry/keys'
 
 export const Route = createFileRoute('/_app/pantry/')({
   validateSearch: (s: Record<string, unknown>) => ({
@@ -13,21 +15,30 @@ export const Route = createFileRoute('/_app/pantry/')({
     sortBy: (s.sortBy as string) || undefined,
     q: (s.q as string) || undefined,
   }),
-  loaderDeps: ({ search }) => ({ branch: search.branch }),
-  // Prefetch the branch-scoped, param-independent queries. The paginated items
-  // query is keyed by page/category/sort and is fetched by the component.
-  loader: async ({ context: { queryClient }, deps: { branch } }) => {
-    if (!branch) return
+  loaderDeps: ({ search }) => ({
+    branch: search.branch,
+    page: search.page,
+    category: search.category,
+    sortBy: search.sortBy,
+    q: search.q,
+  }),
+  loader: async ({ context: { queryClient }, deps }) => {
+    if (!deps.branch) return
+    // Fire-and-forget: starts the items fetch in parallel with stats/categories
+    // so the table never waits for a post-mount round trip. Deliberately NOT
+    // awaited — pagination/filter navigations would otherwise flash the
+    // pendingComponent on every page click.
+    void queryClient.prefetchQuery(
+      getInventoryItemsOptions({
+        ...normalizePantryItemsParams(deps),
+        branchId: deps.branch,
+      }),
+    )
     await Promise.all([
-      queryClient.ensureQueryData(getPantryStatsOptions(branch)),
-      queryClient.ensureQueryData(getCategoriesOptions(branch)),
+      queryClient.ensureQueryData(getPantryStatsOptions(deps.branch)),
+      queryClient.ensureQueryData(getCategoriesOptions(deps.branch)),
     ])
   },
   component: PantryPage,
-  pendingComponent: () => (
-    <PendingPage
-      title="Pantry Inventory"
-      description="Current stock levels for essential supplies and raw materials."
-    />
-  ),
+  pendingComponent: PantrySkeleton,
 })

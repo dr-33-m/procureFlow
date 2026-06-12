@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { IssuancePage } from '@/components/features/issuance/issuance-page'
-import { PendingPage } from '@/components/ui/pending-page'
+import { IssuanceSkeleton } from '@/components/skeletons/issuance-skeleton'
 import {
   getInventoryForIssuanceOptions,
   getRecentIssuancesOptions,
@@ -22,10 +22,5 @@ export const Route = createFileRoute('/_app/issuance/')({
     ])
   },
   component: IssuancePage,
-  pendingComponent: () => (
-    <PendingPage
-      title="Stock Issuance"
-      description="Record stock departures from the central pantry for kitchen operations."
-    />
-  ),
+  pendingComponent: IssuanceSkeleton,
 })

@@ -169,6 +169,8 @@ export const products = pgTable(
   (t) => [
     index('idx_products_barcode').on(t.barcode),
     index('idx_products_branch').on(t.branchId),
+    // Covers pantry category filters and DISTINCT category scans.
+    index('idx_products_branch_category').on(t.branchId, t.category),
   ],
 )
 
@@ -223,6 +225,8 @@ export const shoppingLists = pgTable('shopping_lists', {
   completedAt: timestamp('completed_at'),
 }, (t) => [
   index('idx_shopping_lists_branch_status').on(t.branchId, t.status),
+  // Covers dashboard recent-activity (ORDER BY created_at DESC LIMIT n).
+  index('idx_shopping_lists_branch_created').on(t.branchId, t.createdAt),
 ])
 
 // ─── Shopping List Items ─────────────────────────────────────────────────────

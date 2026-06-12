@@ -5,6 +5,9 @@ export function getProfileOptions() {
   return {
     queryKey: profileKeys.logto(),
     queryFn: () => getUserProfile(),
-    staleTime: 5 * 60_000,
+    // Logto profile changes only through our own mutations (which invalidate
+    // this key), so cache generously — each refetch is a cross-server call.
+    staleTime: 15 * 60_000,
+    gcTime: 30 * 60_000,
   }
 }

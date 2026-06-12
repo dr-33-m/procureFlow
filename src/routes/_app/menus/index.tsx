@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { MenusPage } from '@/components/features/menus/menus-page'
-import { PendingPage } from '@/components/ui/pending-page'
+import { MenusSkeleton } from '@/components/skeletons/menus-skeleton'
 import {
   listMenusOptions,
   getRecentMenuActivityOptions,
@@ -16,10 +16,5 @@ export const Route = createFileRoute('/_app/menus/')({
     ])
   },
   component: MenusPage,
-  pendingComponent: () => (
-    <PendingPage
-      title="Menus"
-      description="Recipes the AI uses as the starting point for issuance and demand forecasting."
-    />
-  ),
+  pendingComponent: MenusSkeleton,
 })

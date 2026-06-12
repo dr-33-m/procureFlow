@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { ReceivingListPage } from '@/components/features/receiving/receiving-list-page'
-import { PendingPage } from '@/components/ui/pending-page'
+import { ReceivingSkeleton } from '@/components/skeletons/receiving-skeleton'
 import { getReceivingListsOptions } from '@/lib/query-manager/receiving/options'
 
 export const Route = createFileRoute('/_app/receiving/')({
@@ -16,10 +16,5 @@ export const Route = createFileRoute('/_app/receiving/')({
     await queryClient.ensureQueryData(getReceivingListsOptions(branch))
   },
   component: ReceivingListPage,
-  pendingComponent: () => (
-    <PendingPage
-      title="Receiving & Staging"
-      description="Review inbound deliveries and reconcile items against purchase orders."
-    />
-  ),
+  pendingComponent: ReceivingSkeleton,
 })

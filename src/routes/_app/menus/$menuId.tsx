@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { MenuDetailPage } from '@/components/features/menus/menu-detail-page'
-import { PendingPage } from '@/components/ui/pending-page'
+import { TablePageSkeleton } from '@/components/skeletons/table-page-skeleton'
 import {
   getMenuWithDishesOptions,
   getMenuReconciliationStatsOptions,
@@ -14,5 +14,7 @@ export const Route = createFileRoute('/_app/menus/$menuId')({
     ])
   },
   component: MenuDetailPage,
-  pendingComponent: () => <PendingPage title="Menu" />,
+  pendingComponent: () => (
+    <TablePageSkeleton title="Menu" label="Loading menu…" />
+  ),
 })

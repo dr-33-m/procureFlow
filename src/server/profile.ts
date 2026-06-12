@@ -24,6 +24,20 @@ export type LogtoAccountProfile = {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+const LOGTO_FETCH_TIMEOUT_MS = 8000
+
+/**
+ * Fetch against the remote Logto server with a timeout so a slow or
+ * unreachable Logto degrades into a query/mutation error instead of a
+ * hung loader.
+ */
+function logtoFetch(path: string, init: RequestInit = {}) {
+  return fetch(`${process.env.LOGTO_ENDPOINT}${path}`, {
+    ...init,
+    signal: AbortSignal.timeout(LOGTO_FETCH_TIMEOUT_MS),
+  })
+}
+
 async function getAccessToken() {
   const { client } = await createLogtoClient()
   const token = await client.getAccessToken()
@@ -58,7 +72,7 @@ async function logtoError(res: Response): Promise<string> {
 /** Read the current user's Logto profile. */
 export const getUserProfile = createServerFn({ method: 'GET' }).handler(async () => {
   const token = await getAccessToken()
-  const res = await fetch(`${process.env.LOGTO_ENDPOINT}/api/my-account`, {
+  const res = await logtoFetch('/api/my-account', {
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) throw new Error(`Failed to load profile (${res.status})`)
@@ -74,7 +88,7 @@ export const updateUserName = createServerFn({ method: 'POST' })
     if (!name) throw new Error('Name cannot be empty.')
 
     const token = await getAccessToken()
-    const res = await fetch(`${process.env.LOGTO_ENDPOINT}/api/my-account`, {
+    const res = await logtoFetch('/api/my-account', {
       method: 'PATCH',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ name }),
@@ -94,7 +108,7 @@ export const verifyPassword = createServerFn({ method: 'POST' })
   .inputValidator((data: { password: string }) => data)
   .handler(async ({ data }) => {
     const token = await getAccessToken()
-    const res = await fetch(`${process.env.LOGTO_ENDPOINT}/api/verifications/password`, {
+    const res = await logtoFetch('/api/verifications/password', {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ password: data.password }),
@@ -134,7 +148,7 @@ export const updateProtectedProfile = createServerFn({ method: 'POST' })
     if (data.username !== undefined) patch.username = data.username.trim() || null
 
     if (Object.keys(patch).length > 0) {
-      const res = await fetch(`${process.env.LOGTO_ENDPOINT}/api/my-account`, {
+      const res = await logtoFetch('/api/my-account', {
         method: 'PATCH',
         headers: verificationHeaders,
         body: JSON.stringify(patch),
@@ -144,7 +158,7 @@ export const updateProtectedProfile = createServerFn({ method: 'POST' })
 
     // Update password via POST /api/my-account/password
     if (data.newPassword) {
-      const res = await fetch(`${process.env.LOGTO_ENDPOINT}/api/my-account/password`, {
+      const res = await logtoFetch('/api/my-account/password', {
         method: 'POST',
         headers: verificationHeaders,
         body: JSON.stringify({ password: data.newPassword }),
@@ -167,7 +181,7 @@ export const sendEmailVerificationCode = createServerFn({ method: 'POST' })
   .inputValidator((data: { email: string }) => data)
   .handler(async ({ data }) => {
     const token = await getAccessToken()
-    const res = await fetch(`${process.env.LOGTO_ENDPOINT}/api/verifications/verification-code`, {
+    const res = await logtoFetch('/api/verifications/verification-code', {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ identifier: { type: 'email', value: data.email } }),
@@ -185,8 +199,8 @@ export const verifyEmailCode = createServerFn({ method: 'POST' })
   .inputValidator((data: { email: string; code: string; verificationRecordId: string }) => data)
   .handler(async ({ data }) => {
     const token = await getAccessToken()
-    const res = await fetch(
-      `${process.env.LOGTO_ENDPOINT}/api/verifications/verification-code/verify`,
+    const res = await logtoFetch(
+      '/api/verifications/verification-code/verify',
       {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -219,7 +233,7 @@ export const updatePrimaryEmail = createServerFn({ method: 'POST' })
     const ctx = await getAuthContext()
     const token = await getAccessToken()
 
-    const res = await fetch(`${process.env.LOGTO_ENDPOINT}/api/my-account/primary-email`, {
+    const res = await logtoFetch('/api/my-account/primary-email', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,

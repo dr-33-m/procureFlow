@@ -57,6 +57,13 @@
       "when": 1781274039067,
       "tag": "0007_slim_the_hand",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781293273764,
+      "tag": "0008_sturdy_morbius",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { KitchenPage } from '@/components/features/kitchen/kitchen-page'
-import { PendingPage } from '@/components/ui/pending-page'
+import { KitchenSkeleton } from '@/components/skeletons/kitchen-skeleton'
 import {
   listKitchenStockOptions,
   getReconciliationHistoryOptions,
@@ -21,10 +21,5 @@ export const Route = createFileRoute('/_app/kitchen/')({
     ])
   },
   component: KitchenPage,
-  pendingComponent: () => (
-    <PendingPage
-      title="Kitchen"
-      description="Items issued to the kitchen, waiting for the chef to close out at end of day."
-    />
-  ),
+  pendingComponent: KitchenSkeleton,
 })

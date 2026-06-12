@@ -1,8 +1,8 @@
 import { createServerFn } from "@tanstack/react-start"
 import { redirect } from "@tanstack/react-router"
-import { getRequestUrl, deleteCookie } from "@tanstack/react-start/server"
+import { getRequestUrl } from "@tanstack/react-start/server"
 import { createLogtoClient } from "./logto"
-import { getAppSession, COOKIE_OPTIONS } from "./session"
+import { getAppSession } from "./session"
 import { db, users, companyMembers, branchMembers, branches } from "@/db"
 import { eq } from "drizzle-orm"
 import type { UserRole } from "@/types"
@@ -115,35 +115,6 @@ export const handleCallback = createServerFn({ method: "GET" }).handler(
       })
       throw redirect({ to: "/onboarding/role-select" })
     }
-  }
-)
-
-/**
- * Signs the user out. Clears both the app session and the Logto session cookie,
- * then redirects to Logto's end_session endpoint.
- *
- * Uses `throw redirect()` so the 307 Response carries Set-Cookie headers
- * that actually clear the session cookies in the browser.
- */
-export const signOut = createServerFn({ method: "GET" }).handler(async () => {
-  const url = getRequestUrl()
-  const postLogoutRedirect = `${url.origin}/auth/sign-out/callback`
-
-  const { client, getNavigateUrl } = await createLogtoClient()
-  await client.signOut(postLogoutRedirect)
-
-  throw redirect({ href: getNavigateUrl() || postLogoutRedirect })
-})
-
-/**
- * Clears both session cookies. Called from the post-logout callback route
- * after Logto redirects back, so the Set-Cookie headers are on a clean
- * same-origin response rather than a cross-origin redirect chain.
- */
-export const clearSessionCookies = createServerFn({ method: "GET" }).handler(
-  async () => {
-    deleteCookie("procureflow", COOKIE_OPTIONS)
-    deleteCookie("procureflow-logto", COOKIE_OPTIONS)
   }
 )
 

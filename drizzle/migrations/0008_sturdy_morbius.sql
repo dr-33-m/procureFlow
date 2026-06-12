@@ -1,0 +1,2 @@
+CREATE INDEX "idx_products_branch_category" ON "products" USING btree ("branch_id","category");--> statement-breakpoint
+CREATE INDEX "idx_shopping_lists_branch_created" ON "shopping_lists" USING btree ("branch_id","created_at");

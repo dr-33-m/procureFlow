@@ -15,6 +15,9 @@ export function getCompanyBranchesOptions() {
     queryKey: companyKeys.branches(),
     queryFn: () => getCompanyBranches(),
     staleTime: 5 * 60_000,
+    // Branch names rarely change — keep them cached so the app shell's
+    // loader never refetches on back-navigation.
+    gcTime: 30 * 60_000,
   }
 }
 

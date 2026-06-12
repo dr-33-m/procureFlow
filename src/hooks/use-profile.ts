@@ -3,6 +3,7 @@ import { useRouter } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { getProfileOptions } from '@/lib/query-manager/profile/options'
 import { profileKeys } from '@/lib/query-manager/profile/keys'
+import { authKeys } from '@/lib/query-manager/auth/keys'
 import {
   updateUserName,
   verifyPassword,
@@ -25,6 +26,8 @@ export function useUpdateUserName() {
     mutationFn: (name: string) => updateUserName({ data: { name } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: profileKeys.logto() })
+      // Session userName changed — refresh the cached auth user (sidebar name).
+      queryClient.invalidateQueries({ queryKey: authKeys.currentUser() })
       router.invalidate()
     },
     onError: (err: unknown) => {
@@ -83,6 +86,8 @@ export function useUpdatePrimaryEmail() {
       updatePrimaryEmail({ data: args }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: profileKeys.logto() })
+      // Session userEmail changed — refresh the cached auth user.
+      queryClient.invalidateQueries({ queryKey: authKeys.currentUser() })
       router.invalidate()
     },
     onError: (err: unknown) => {

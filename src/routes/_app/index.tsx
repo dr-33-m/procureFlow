@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { DashboardPage } from '@/components/features/dashboard/dashboard-page'
-import { PendingPage } from '@/components/ui/pending-page'
+import { DashboardSkeleton } from '@/components/skeletons/dashboard-skeleton'
 import {
   getDashboardStatsOptions,
   getRecentActivityOptions,
@@ -22,7 +22,5 @@ export const Route = createFileRoute('/_app/')({
     ])
   },
   component: DashboardPage,
-  pendingComponent: () => (
-    <PendingPage title="Operational Dashboard" variant="cards" />
-  ),
+  pendingComponent: DashboardSkeleton,
 })

@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { CompanySettingsPage } from '@/components/features/settings/company'
-import { PendingPage } from '@/components/ui/pending-page'
+import { CompanySettingsSkeleton } from '@/components/skeletons/company-settings-skeleton'
 import {
   getCompanyOptions,
   getTierUsageOptions,
@@ -27,11 +27,5 @@ export const Route = createFileRoute('/_app/settings/company')({
     ])
   },
   component: CompanySettingsPage,
-  pendingComponent: () => (
-    <PendingPage
-      title="Company"
-      description="Manage your company settings, plan, branches, and team."
-      variant="settings-form"
-    />
-  ),
+  pendingComponent: CompanySettingsSkeleton,
 })

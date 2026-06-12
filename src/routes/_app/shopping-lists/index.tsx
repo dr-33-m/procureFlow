@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { ShoppingListsPage } from '@/components/features/shopping-lists/shopping-lists-page'
-import { PendingPage } from '@/components/ui/pending-page'
+import { ShoppingListsSkeleton } from '@/components/skeletons/shopping-lists-skeleton'
 import { getShoppingListsOptions } from '@/lib/query-manager/shopping-lists/options'
 
 export const Route = createFileRoute('/_app/shopping-lists/')({
@@ -13,5 +13,5 @@ export const Route = createFileRoute('/_app/shopping-lists/')({
     await queryClient.ensureQueryData(getShoppingListsOptions(branch))
   },
   component: ShoppingListsPage,
-  pendingComponent: () => <PendingPage title="Shopping Lists" />,
+  pendingComponent: ShoppingListsSkeleton,
 })
