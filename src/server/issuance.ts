@@ -355,6 +355,51 @@ export const issueStock = createServerFn({ method: 'POST' })
       }
     }
 
+    // Validate availability before any writes so an over-issue rejects cleanly
+    // instead of clamping inventory while still recording full-quantity rows.
+    const requestedStock = new Map<string, number>()
+    for (const item of items) {
+      const pricing = packagingMap.get(item.productId)
+      const stockQty =
+        item.deductUnit === 'purchase' && pricing
+          ? toStockQty(item.deductQty, 'purchase', pricing)
+          : item.deductQty
+      requestedStock.set(
+        item.productId,
+        (requestedStock.get(item.productId) ?? 0) + stockQty,
+      )
+    }
+
+    const availabilityRows = await db
+      .select({
+        productId: products.id,
+        name: products.name,
+        stockUnit: products.stockUnit,
+        quantity: inventory.quantity,
+      })
+      .from(products)
+      .leftJoin(
+        inventory,
+        and(eq(inventory.productId, products.id), eq(inventory.branchId, branchId)),
+      )
+      .where(
+        and(
+          eq(products.branchId, branchId),
+          inArray(products.id, [...requestedStock.keys()]),
+        ),
+      )
+    const availability = new Map(availabilityRows.map((r) => [r.productId, r]))
+
+    for (const [productId, requested] of requestedStock) {
+      const row = availability.get(productId)
+      const available = parseFloat(row?.quantity ?? '0')
+      if (requested > available + 1e-9) {
+        throw new Error(
+          `Insufficient stock for ${row?.name ?? 'product'}: ${available} ${row?.stockUnit ?? ''} available, ${requested} requested`.trim(),
+        )
+      }
+    }
+
     for (const item of items) {
       const pricing = packagingMap.get(item.productId)
       const stockQty =

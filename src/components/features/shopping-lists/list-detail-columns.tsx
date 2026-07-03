@@ -49,8 +49,11 @@ export const listDetailColumns: ColumnDef<ListDetailItem>[] = [
     key: 'total',
     header: 'Total',
     render: (row) => {
-      const total =
-        parseFloat(row.requestedQuantity ?? '0') * parseFloat(row.pricePerStockUnit ?? '0')
+      // Shopped items (found/partial/not_found) cost what was actually bought;
+      // pending items are still projected from the requested quantity.
+      const qty =
+        row.status === 'pending' ? row.requestedQuantity : row.purchasedQuantity
+      const total = parseFloat(qty ?? '0') * parseFloat(row.pricePerStockUnit ?? '0')
       return <span className="font-semibold">{formatCurrencyFull(total.toString())}</span>
     },
   },

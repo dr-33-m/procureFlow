@@ -94,10 +94,16 @@ export function EditDraftPage() {
     if (list.expectedDailyOccupancy) setAvgDailyGuests(list.expectedDailyOccupancy)
     if (list.mealsPerDayCount) setMealsPerDay(list.mealsPerDayCount)
     setItems(
+      // requestedQuantity is stored in stock units — convert back to the unit
+      // the creator originally typed (requestedUnit) for editing.
       list.items.map((i) => ({
         productId: i.productId ?? '',
         productName: i.productName,
-        quantity: parseFloat(i.requestedQuantity ?? '0'),
+        quantity:
+          i.requestedUnit === 'purchase'
+            ? parseFloat(i.requestedQuantity ?? '0') /
+              (parseFloat(i.purchasePackSize ?? '1') || 1)
+            : parseFloat(i.requestedQuantity ?? '0'),
         quantityUnit: (i.requestedUnit as 'stock' | 'purchase') ?? 'stock',
         stockUnit: i.stockUnit,
         purchaseUnit: i.purchaseUnit ?? null,
@@ -159,12 +165,18 @@ export function EditDraftPage() {
     periodType,
     periodDays,
     mealsPerDayCount: mealsPerDay,
-    items: items.map((i) => ({
-      productId: i.productId,
-      requestedQuantity: i.quantity,
-      requestedUnit: i.quantityUnit,
-      pricePerStockUnit: i.pricePerStockUnit,
-    })),
+    // requestedQuantity is persisted in stock units (schema invariant);
+    // requestedUnit records what the creator typed.
+    items: items.map((i) => {
+      const packSize = parseFloat(i.purchasePackSize ?? '1') || 1
+      return {
+        productId: i.productId,
+        requestedQuantity:
+          i.quantityUnit === 'purchase' ? i.quantity * packSize : i.quantity,
+        requestedUnit: i.quantityUnit,
+        pricePerStockUnit: i.pricePerStockUnit,
+      }
+    }),
   })
 
   const handleSaveDraft = () => {
@@ -175,7 +187,7 @@ export function EditDraftPage() {
   }
 
   const handleSubmit = () => {
-    if (!listName.trim() || items.length === 0) return
+    if (!listName.trim() || items.length === 0 || !assignedTo) return
     updateMutation.mutate(buildPayload('pending'), {
       onSuccess: () => navigate({ to: '/shopping-lists', search: { filter: undefined } }),
     })
@@ -425,17 +437,20 @@ export function EditDraftPage() {
                   </p>
                 )}
               </div>
-              <div className="relative w-28 md:w-auto">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
-                <Input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={item.pricePerStockUnit === 0 ? '' : item.pricePerStockUnit}
-                  placeholder="0.00"
-                  onChange={(e) => updatePrice(item.productId, parseFloat(e.target.value) || 0)}
-                  className="h-9 pl-6"
-                />
+              <div className="w-28 md:w-auto">
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={item.pricePerStockUnit === 0 ? '' : item.pricePerStockUnit}
+                    placeholder="0.00"
+                    onChange={(e) => updatePrice(item.productId, parseFloat(e.target.value) || 0)}
+                    className="h-9 pl-6"
+                  />
+                </div>
+                <p className="mt-0.5 text-xs text-muted-foreground italic">per {item.stockUnit}</p>
               </div>
               <button
                 type="button"
@@ -519,7 +534,10 @@ export function EditDraftPage() {
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={updateMutation.isPending || !listName.trim() || items.length === 0}
+              disabled={
+                updateMutation.isPending || !listName.trim() || items.length === 0 || !assignedTo
+              }
+              title={!assignedTo ? 'Assign a runner before sending the list' : undefined}
               className="gap-2"
             >
               Finalise &amp; Send

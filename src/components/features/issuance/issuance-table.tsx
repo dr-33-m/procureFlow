@@ -132,6 +132,7 @@ export function IssuanceTable({ inventory }: IssuanceTableProps) {
         <QtyInput
           value={deductQtys[row.productId] ?? 0}
           onChange={(v) => setDeductQty(row.productId, v)}
+          max={row.quantity}
         />
       ),
     },

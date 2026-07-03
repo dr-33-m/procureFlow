@@ -43,8 +43,8 @@ export function useIssueStock() {
       queryClient.invalidateQueries({ queryKey: ['pantry'] })
       toast.success('Stock deducted successfully')
     },
-    onError: () => {
-      toast.error('Failed to deduct stock')
+    onError: (err: unknown) => {
+      toast.error(err instanceof Error ? err.message : 'Failed to deduct stock')
     },
   })
 }

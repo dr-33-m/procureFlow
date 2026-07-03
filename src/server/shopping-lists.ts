@@ -206,6 +206,16 @@ export const updateShoppingListStatus = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     await getAuthContext()
 
+    if (data.status === 'pending') {
+      const [list] = await db
+        .select({ assignedTo: shoppingLists.assignedTo })
+        .from(shoppingLists)
+        .where(and(eq(shoppingLists.id, data.id), eq(shoppingLists.branchId, data.branchId)))
+      if (!list?.assignedTo) {
+        throw new Error('Assign a runner before sending the list')
+      }
+    }
+
     await db
       .update(shoppingLists)
       .set({ status: data.status, updatedAt: new Date() })
@@ -256,6 +266,33 @@ export const updateShoppingListItem = createServerFn({ method: 'POST' })
       })
       .where(eq(shoppingListItems.id, data.id))
       .returning()
+
+    // Keep the list's totalValue in sync with what was actually bought: shopped
+    // items (found/partial/not_found) count purchasedQuantity, pending items
+    // still count requestedQuantity.
+    if (updated) {
+      const items = await db
+        .select({
+          requestedQuantity: shoppingListItems.requestedQuantity,
+          purchasedQuantity: shoppingListItems.purchasedQuantity,
+          pricePerStockUnit: shoppingListItems.pricePerStockUnit,
+          status: shoppingListItems.status,
+        })
+        .from(shoppingListItems)
+        .where(eq(shoppingListItems.shoppingListId, updated.shoppingListId))
+
+      const totalValue = items.reduce((sum, item) => {
+        const qty =
+          item.status === 'pending' ? item.requestedQuantity : item.purchasedQuantity
+        return sum + parseFloat(qty ?? '0') * parseFloat(item.pricePerStockUnit ?? '0')
+      }, 0)
+
+      await db
+        .update(shoppingLists)
+        .set({ totalValue: totalValue.toFixed(2), updatedAt: new Date() })
+        .where(eq(shoppingLists.id, updated.shoppingListId))
+    }
+
     return updated
   })
 
@@ -370,6 +407,10 @@ export const createShoppingList = createServerFn({ method: 'POST' })
 
     const { branchId, ...rest } = data
 
+    if ((rest.status ?? 'pending') === 'pending' && !rest.assignedTo) {
+      throw new Error('Assign a runner before sending the list')
+    }
+
     const totalValue = rest.items.reduce(
       (sum, item) => sum + item.requestedQuantity * item.pricePerStockUnit,
       0,
@@ -445,6 +486,10 @@ export const updateShoppingList = createServerFn({ method: 'POST' })
 
     if (!existing || existing.status !== 'draft') {
       throw new Error('Only draft lists can be edited')
+    }
+
+    if (data.status === 'pending' && !data.assignedTo) {
+      throw new Error('Assign a runner before sending the list')
     }
 
     const totalValue = data.items.reduce(

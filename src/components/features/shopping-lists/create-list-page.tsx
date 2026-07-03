@@ -143,12 +143,18 @@ export function CreateListPage() {
     expectedDailyOccupancy: avgDailyGuests ? Number(avgDailyGuests) : undefined,
     periodDays,
     mealsPerDayCount: mealsPerDay,
-    items: items.map((i) => ({
-      productId: i.productId,
-      requestedQuantity: i.quantity,
-      requestedUnit: i.quantityUnit,
-      pricePerStockUnit: i.pricePerStockUnit,
-    })),
+    // requestedQuantity is persisted in stock units (schema invariant);
+    // requestedUnit records what the creator typed.
+    items: items.map((i) => {
+      const packSize = parseFloat(i.purchasePackSize ?? '1') || 1
+      return {
+        productId: i.productId,
+        requestedQuantity:
+          i.quantityUnit === 'purchase' ? i.quantity * packSize : i.quantity,
+        requestedUnit: i.quantityUnit,
+        pricePerStockUnit: i.pricePerStockUnit,
+      }
+    }),
   })
 
   const handleSaveDraft = () => {
@@ -159,7 +165,7 @@ export function CreateListPage() {
   }
 
   const handleSubmit = () => {
-    if (!listName.trim()) return
+    if (!listName.trim() || !assignedTo) return
     createMutation.mutate(buildPayload('pending'), {
       onSuccess: () => navigate({ to: '/shopping-lists', search: { filter: undefined } }),
     })
@@ -425,17 +431,20 @@ export function CreateListPage() {
               </div>
 
               {/* Price */}
-              <div className="relative w-28 md:w-auto">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
-                <Input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={item.pricePerStockUnit === 0 ? '' : item.pricePerStockUnit}
-                  placeholder="0.00"
-                  onChange={(e) => updatePrice(item.productId, parseFloat(e.target.value) || 0)}
-                  className="h-9 pl-6"
-                />
+              <div className="w-28 md:w-auto">
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={item.pricePerStockUnit === 0 ? '' : item.pricePerStockUnit}
+                    placeholder="0.00"
+                    onChange={(e) => updatePrice(item.productId, parseFloat(e.target.value) || 0)}
+                    className="h-9 pl-6"
+                  />
+                </div>
+                <p className="mt-0.5 text-xs text-muted-foreground italic">per {item.stockUnit}</p>
               </div>
 
               {/* Source badge */}
@@ -549,7 +558,10 @@ export function CreateListPage() {
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={createMutation.isPending || !listName.trim() || items.length === 0}
+              disabled={
+                createMutation.isPending || !listName.trim() || items.length === 0 || !assignedTo
+              }
+              title={!assignedTo ? 'Assign a runner before sending the list' : undefined}
               className="gap-2"
             >
               Create &amp; Send List

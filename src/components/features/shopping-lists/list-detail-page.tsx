@@ -31,12 +31,13 @@ export function ListDetailPage() {
     )
   }
 
-  const projectedTotal = list.items.reduce(
-    (sum, item) =>
-      sum +
-      parseFloat(item.requestedQuantity ?? '0') * parseFloat(item.pricePerStockUnit ?? '0'),
-    0,
-  )
+  // Shopped items (found/partial/not_found) count what was actually bought;
+  // pending items are still projected from the requested quantity.
+  const projectedTotal = list.items.reduce((sum, item) => {
+    const qty =
+      item.status === 'pending' ? item.requestedQuantity : item.purchasedQuantity
+    return sum + parseFloat(qty ?? '0') * parseFloat(item.pricePerStockUnit ?? '0')
+  }, 0)
 
   return (
     <>

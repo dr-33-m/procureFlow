@@ -59,8 +59,8 @@ export function useCreateShoppingList() {
       queryClient.invalidateQueries({ queryKey: shoppingListKeys.all })
       toast.success(variables.status === 'draft' ? 'Draft saved' : 'Shopping list created')
     },
-    onError: () => {
-      toast.error('Failed to create shopping list')
+    onError: (err: unknown) => {
+      toast.error(err instanceof Error ? err.message : 'Failed to create shopping list')
     },
   })
 }
@@ -77,8 +77,8 @@ export function useUpdateShoppingListStatus() {
       queryClient.invalidateQueries({ queryKey: dashboardKeys.all })
       toast.success('Status updated')
     },
-    onError: () => {
-      toast.error('Failed to update status')
+    onError: (err: unknown) => {
+      toast.error(err instanceof Error ? err.message : 'Failed to update status')
     },
   })
 }
@@ -117,8 +117,8 @@ export function useUpdateShoppingList(listId: string) {
       })
       queryClient.invalidateQueries({ queryKey: dashboardKeys.all })
     },
-    onError: () => {
-      toast.error('Failed to update shopping list')
+    onError: (err: unknown) => {
+      toast.error(err instanceof Error ? err.message : 'Failed to update shopping list')
     },
   })
 }
