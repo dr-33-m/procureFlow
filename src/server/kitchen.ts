@@ -1,15 +1,15 @@
 import { createServerFn } from '@tanstack/react-start'
+import { and, desc, eq, inArray } from 'drizzle-orm'
 import {
   db,
-  kitchenStock,
-  kitchenReconciliations,
-  kitchenReconciliationItems,
   inventoryTransactions,
-  products,
+  kitchenReconciliationItems,
+  kitchenReconciliations,
+  kitchenStock,
   menus,
+  products,
   users,
 } from '@/db'
-import { eq, and, desc, inArray } from 'drizzle-orm'
 import { getAuthContext, requireRole, validateBranchAccess } from '@/server/auth/context'
 
 type MealType = 'breakfast' | 'lunch' | 'dinner' | 'drinks' | 'event'
@@ -201,7 +201,7 @@ export const recordReconciliation = createServerFn({ method: 'POST' })
       .where(
         inArray(
           kitchenStock.id,
-          data.items.map((i) => i.kitchenStockId).filter(Boolean) as string[],
+          data.items.map((i) => i.kitchenStockId).filter(Boolean),
         ),
       )
     const stockById = new Map(stockRows.map((s) => [s.id, s]))
@@ -209,7 +209,11 @@ export const recordReconciliation = createServerFn({ method: 'POST' })
     // Build batch arrays for reconciliation items and transactions
     const reconItemValues: Array<Record<string, unknown>> = []
     const txnValues: Array<Record<string, unknown>> = []
-    const stockUpdates: Array<{ id: string; status: string; remaining: string }> = []
+    const stockUpdates: Array<{
+      id: string
+      status: 'partial' | 'reconciled'
+      remaining: string
+    }> = []
 
     for (const item of data.items) {
       const sourceStock = stockById.get(item.kitchenStockId)
@@ -253,17 +257,22 @@ export const recordReconciliation = createServerFn({ method: 'POST' })
         createdBy: ctx.userId,
       })
 
-      // Flip the source kitchen_stock row status
+      // Update the source kitchen_stock row. Only stock that was consumed or
+      // discarded is removed from the open kitchen balance; leftovers stay in
+      // quantityRemaining so they remain visible/reconcilable later.
       if (item.kitchenStockId && sourceStock) {
-        const totalAccounted =
-          item.quantityUsed + (item.quantityWaste ?? 0) + (item.quantityLeftover ?? 0)
-        const issued = parseFloat(sourceStock.quantityIssued)
-        const newStatus = totalAccounted >= issued * 0.99 ? 'reconciled' : 'partial'
-        const newRemaining = Math.max(0, issued - totalAccounted)
+        const currentRemaining = parseFloat(sourceStock.quantityRemaining)
+        const totalConsumedOrDiscarded = item.quantityUsed + (item.quantityWaste ?? 0)
+        const reportedLeftover = Math.max(0, item.quantityLeftover ?? 0)
+        const computedRemaining = Math.max(0, currentRemaining - totalConsumedOrDiscarded)
+        const newRemaining = Math.max(computedRemaining, reportedLeftover)
+        const tolerance = Math.max(currentRemaining * 0.01, 0.0001)
+        const newStatus =
+          reportedLeftover > 0 || newRemaining > tolerance ? 'partial' : 'reconciled'
         stockUpdates.push({
           id: item.kitchenStockId,
           status: newStatus,
-          remaining: newRemaining.toString(),
+          remaining: newStatus === 'reconciled' ? '0' : newRemaining.toString(),
         })
       }
     }
@@ -285,7 +294,7 @@ export const recordReconciliation = createServerFn({ method: 'POST' })
             .set({
               status: u.status,
               quantityRemaining: u.remaining,
-              reconciledAt: new Date(),
+              reconciledAt: u.status === 'reconciled' ? new Date() : null,
             })
             .where(eq(kitchenStock.id, u.id)),
         ),

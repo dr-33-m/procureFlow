@@ -7,10 +7,12 @@ import type {
   WizardDishInput,
   WizardMenuInput,
 } from '@/lib/pantry-gen'
+import { fallbackStructureRecipesFromText } from '@/lib/pantry-gen'
 import { MODEL } from '@/server/ai/constants'
 import { parseAIError } from '@/server/ai/errors'
 import { PANTRY_GEN_SYSTEM_PROMPT } from '@/server/ai/pantry-gen/system-prompt'
 import { createPantryGenTools } from '@/server/ai/pantry-gen/tool-implementations'
+import { extractToolResultObject } from '@/server/ai/tool-result'
 
 // Coerce the (untrusted) AI tool result into a StructuredPantry. The model can
 // emit partial/loose JSON; anything malformed is dropped here. `keepZeroQty`
@@ -72,7 +74,7 @@ function coerceStructured(raw: Record<string, unknown>, keepZeroQty: boolean): S
 export async function structureRecipes(
   menus: Array<WizardMenuInput>,
   dishes: Array<WizardDishInput>,
-  opts: { keepZeroQty?: boolean } = {},
+  opts: { keepZeroQty?: boolean; fallbackOnError?: boolean } = {},
 ): Promise<StructuredPantry> {
   const userContent = [
     'Structure the pantry from these menus and dish recipes. Call propose_structured_pantry exactly once.',
@@ -113,8 +115,8 @@ export async function structureRecipes(
 
     for await (const chunk of stream) {
       if (chunk.type === 'RUN_ERROR') runError = chunk
-      if (chunk.type === 'TOOL_RESULT') {
-        const result = chunk.result as Record<string, unknown> | null
+      if (chunk.type === 'TOOL_CALL_END' || chunk.type === 'TOOL_CALL_RESULT') {
+        const result = extractToolResultObject(chunk)
         if (result && result.accepted && Array.isArray(result.products)) {
           structured = coerceStructured(result, opts.keepZeroQty ?? false)
         }
@@ -126,6 +128,13 @@ export async function structureRecipes(
     if (runError) throw new Error(parseAIError(runError))
 
     if (!structured || structured.products.length === 0) {
+      if (opts.fallbackOnError) {
+        const fallback = fallbackStructureRecipesFromText(menus, dishes, {
+          keepZeroQty: opts.keepZeroQty ?? false,
+        })
+        if (fallback.products.length > 0) return fallback
+      }
+
       throw new Error(
         'The AI could not structure a pantry from those recipes. Check that each dish lists ingredients (e.g. "180g chicken breast").',
       )
@@ -133,6 +142,12 @@ export async function structureRecipes(
 
     return structured
   } catch (err) {
+    if (opts.fallbackOnError) {
+      const fallback = fallbackStructureRecipesFromText(menus, dishes, {
+        keepZeroQty: opts.keepZeroQty ?? false,
+      })
+      if (fallback.products.length > 0) return fallback
+    }
     throw new Error(parseAIError(err))
   }
 }

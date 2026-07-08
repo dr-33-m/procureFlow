@@ -1,11 +1,11 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   deriveParByProduct,
+  fallbackStructureRecipesFromText,
   ingredientQtyToStock,
   withDerivedPar,
-  type GenDish,
-  type GenProductSpec,
 } from './pantry-gen'
+import type { GenDish, GenProductSpec } from './pantry-gen'
 
 describe('ingredientQtyToStock', () => {
   it('passes stock quantities through unchanged', () => {
@@ -42,7 +42,7 @@ describe('deriveParByProduct', () => {
   }
 
   it('sums an ingredient used across multiple dishes, weighted by servings/guest', () => {
-    const dishes: GenDish[] = [
+    const dishes: Array<GenDish> = [
       {
         menuRef: 'm1',
         name: 'Full English',
@@ -62,7 +62,7 @@ describe('deriveParByProduct', () => {
   })
 
   it('converts base-unit recipe quantities into stock units', () => {
-    const dishes: GenDish[] = [
+    const dishes: Array<GenDish> = [
       {
         menuRef: 'm1',
         name: 'Full English',
@@ -76,7 +76,7 @@ describe('deriveParByProduct', () => {
   })
 
   it('withDerivedPar attaches a rounded par to each product spec', () => {
-    const dishes: GenDish[] = [
+    const dishes: Array<GenDish> = [
       {
         menuRef: 'm1',
         name: 'Full English',
@@ -90,5 +90,83 @@ describe('deriveParByProduct', () => {
     const enriched = withDerivedPar({ products: [eggs, bacon], dishes })
     expect(enriched.find((p) => p.tempKey === 'eggs')?.derivedParPerGuestStock).toBeCloseTo(2)
     expect(enriched.find((p) => p.tempKey === 'bacon')?.derivedParPerGuestStock).toBeCloseTo(0.05)
+  })
+})
+
+describe('fallbackStructureRecipesFromText', () => {
+  it('parses common quantified recipe lines into structured products and ingredients', () => {
+    const structured = fallbackStructureRecipesFromText(
+      [{ tempId: 'dinner', name: 'Dinner', mealType: 'dinner' }],
+      [
+        {
+          menuRef: 'dinner',
+          name: 'Chicken Dinner',
+          defaultServingsPerGuest: 1,
+          recipe: '180g chicken breast\n15ml olive oil\n2 eggs',
+        },
+      ],
+    )
+
+    expect(structured.products.map((p) => p.tempKey)).toEqual([
+      'chicken-breast',
+      'olive-oil',
+      'egg',
+    ])
+    expect(structured.products.find((p) => p.tempKey === 'chicken-breast')).toMatchObject({
+      stockUnit: 'kg',
+      baseUnit: 'g',
+      baseUnitsPerStock: 1000,
+    })
+    expect(structured.products.find((p) => p.tempKey === 'olive-oil')).toMatchObject({
+      stockUnit: 'L',
+      baseUnit: 'ml',
+      baseUnitsPerStock: 1000,
+    })
+    expect(structured.dishes[0].ingredients).toEqual([
+      { productTempKey: 'chicken-breast', quantityPerServing: 180, unit: 'base' },
+      { productTempKey: 'olive-oil', quantityPerServing: 15, unit: 'base' },
+      { productTempKey: 'egg', quantityPerServing: 2, unit: 'stock' },
+    ])
+  })
+
+  it('keeps unquantified ingredients as zero-quantity links when requested', () => {
+    const structured = fallbackStructureRecipesFromText(
+      [{ tempId: 'mains', name: 'Mains', mealType: 'lunch' }],
+      [
+        {
+          menuRef: 'mains',
+          name: 'Roast Plate',
+          defaultServingsPerGuest: 1,
+          recipe: 'rosemary potatoes\nseasonal vegetables',
+        },
+      ],
+      { keepZeroQty: true },
+    )
+
+    expect(structured.products.map((p) => p.name)).toEqual([
+      'Rosemary Potato',
+      'Seasonal Vegetables',
+    ])
+    expect(structured.dishes[0].ingredients).toEqual([
+      { productTempKey: 'rosemary-potato', quantityPerServing: 0, unit: 'stock' },
+      { productTempKey: 'seasonal-vegetables', quantityPerServing: 0, unit: 'stock' },
+    ])
+  })
+
+  it('drops unquantified ingredients when zero-quantity links are not requested', () => {
+    const structured = fallbackStructureRecipesFromText(
+      [{ tempId: 'mains', name: 'Mains', mealType: 'lunch' }],
+      [
+        {
+          menuRef: 'mains',
+          name: 'Roast Plate',
+          defaultServingsPerGuest: 1,
+          recipe: 'rosemary potatoes',
+        },
+      ],
+    )
+
+    expect(structured.products).toEqual([])
+    expect(structured.dishes[0].ingredients).toEqual([])
   })
 })

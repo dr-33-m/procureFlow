@@ -1,48 +1,134 @@
 import { Link, useNavigate } from '@tanstack/react-router'
 import {
-  Calendar,
   AlertTriangle,
-  ShoppingCart,
-  Plus,
-  ClipboardList,
+  Calendar,
   ChevronRight,
+  ClipboardCheck,
+  ClipboardList,
   EggFried,
+  PackageMinus,
+  Plus,
+  ShoppingCart,
 } from 'lucide-react'
-import { DataTable, type ColumnDef } from '@/components/ui/data-table'
+import type { RecentListActivity } from '@/types'
+import type { ColumnDef } from '@/components/ui/data-table'
+import { DataTable } from '@/components/ui/data-table'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { useDashboardStats, useRecentActivity } from '@/hooks/use-dashboard'
-import { formatDate, formatCurrency, formatCurrencyFull, formatRelativeTime } from '@/lib/format'
+import {
+  formatCurrency,
+  formatCurrencyFull,
+  formatDate,
+  formatQuantity,
+  formatRelativeTime,
+} from '@/lib/format'
 import { getCurrentShift } from '@/lib/constants'
-import type { RecentListActivity } from '@/types'
 
-const activityColumns: ColumnDef<RecentListActivity>[] = [
+function ActivityIcon({ type }: { type: RecentListActivity['type'] }) {
+  const className =
+    type === 'issuance'
+      ? 'bg-red-50 text-red-600'
+      : type === 'reconciliation'
+        ? 'bg-green-50 text-green-600'
+        : 'bg-blue-50 text-blue-600'
+
+  const Icon =
+    type === 'issuance'
+      ? PackageMinus
+      : type === 'reconciliation'
+        ? ClipboardCheck
+        : ClipboardList
+
+  return (
+    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${className}`}>
+      <Icon className="h-4 w-4" />
+    </div>
+  )
+}
+
+function activityBadgeClassName(type: RecentListActivity['type']) {
+  if (type === 'issuance') return 'border-red-200 bg-red-50 text-red-700'
+  if (type === 'reconciliation') return 'border-green-200 bg-green-50 text-green-700'
+  return 'border-blue-200 bg-blue-50 text-blue-700'
+}
+
+function activityActorLabel(type: RecentListActivity['type']) {
+  if (type === 'issuance') return 'Issued by'
+  if (type === 'reconciliation') return 'Reconciled by'
+  return 'Modified by'
+}
+
+const activityColumns: Array<ColumnDef<RecentListActivity>> = [
   {
     key: 'name',
-    header: 'List Name',
+    header: 'Activity',
     render: (row) => (
-      <div>
-        <p className="font-medium">{row.name}</p>
-        <p className="text-xs text-muted-foreground">
-          Modified by {row.modifiedBy} • {formatRelativeTime(row.modifiedAt)}
-        </p>
+      <div className="flex items-start gap-3">
+        <ActivityIcon type={row.type} />
+        <div className="min-w-0">
+          <Badge
+            variant="outline"
+            className={`mb-1 text-[10px] font-semibold uppercase tracking-wide ${activityBadgeClassName(row.type)}`}
+          >
+            {row.label}
+          </Badge>
+          <p className="font-medium">{row.name}</p>
+          <p className="text-xs text-muted-foreground">{row.detail}</p>
+          <p className="text-xs text-muted-foreground">
+            {activityActorLabel(row.type)} {row.modifiedBy} •{' '}
+            {formatRelativeTime(row.modifiedAt)}
+          </p>
+        </div>
       </div>
     ),
   },
   {
     key: 'value',
-    header: 'Value',
+    header: 'Summary',
     headerClassName: 'text-right',
     className: 'text-right',
-    render: (row) => (
-      <div className="text-right">
-        <p className="font-semibold">{formatCurrencyFull(row.value)}</p>
-        <StatusBadge
-          status={row.status === 'pending' ? 'pending_approval' : row.status}
-          className="mt-0.5"
-        />
-      </div>
-    ),
+    render: (row) => {
+      if (row.type === 'shopping_list') {
+        return (
+          <div className="text-right">
+            <p className="font-semibold">{formatCurrencyFull(row.value)}</p>
+            <StatusBadge
+              status={row.status === 'pending' ? 'pending_approval' : row.status}
+              className="mt-0.5"
+            />
+          </div>
+        )
+      }
+
+      if (row.type === 'issuance') {
+        return (
+          <div className="text-right">
+            <p className="font-semibold text-red-600">
+              −{formatQuantity(row.value)} {row.unit}
+            </p>
+            <Badge variant="outline" className="mt-0.5 border-red-200 bg-red-50 text-red-700">
+              Issued
+            </Badge>
+          </div>
+        )
+      }
+
+      return (
+        <div className="text-right">
+          <p className="font-semibold">
+            {formatQuantity(row.value)} {row.unit}
+          </p>
+          <Badge
+            variant="outline"
+            className="mt-0.5 border-green-200 bg-green-50 text-green-700"
+          >
+            Reconciled
+          </Badge>
+        </div>
+      )
+    },
   },
   {
     key: 'arrow',
@@ -135,9 +221,18 @@ export function DashboardPage() {
             {String(stats?.criticalWarnings ?? 0).padStart(2, '0')}
           </p>
           <p className="mb-4 text-sm text-red-600">
-            Low stock alerts require immediate review.
+            Low or out-of-stock items require immediate review.
           </p>
-          <Link to="/pantry" search={{ page: 1, category: undefined, sortBy: undefined, q: undefined }}>
+          <Link
+            to="/pantry"
+            search={{
+              page: 1,
+              category: undefined,
+              sortBy: undefined,
+              stockStatus: 'attention',
+              q: undefined,
+            }}
+          >
             <Button variant="destructive" className="w-full">
               Resolve Alerts
             </Button>
@@ -222,9 +317,19 @@ export function DashboardPage() {
           data={recentActivity}
           columns={activityColumns}
           emptyMessage="No recent list activity."
-          onRowClick={(row) =>
-            navigate({ to: '/shopping-lists/$id', params: { id: row.id } })
-          }
+          onRowClick={(row) => {
+            if (row.type === 'shopping_list') {
+              navigate({ to: '/shopping-lists/$id', params: { id: row.id } })
+              return
+            }
+
+            if (row.type === 'issuance') {
+              navigate({ to: '/issuance/activity', search: { page: 1 } })
+              return
+            }
+
+            navigate({ to: '/kitchen' })
+          }}
         />
       </div>
     </>

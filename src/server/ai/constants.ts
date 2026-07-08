@@ -1,4 +1,4 @@
-import { openRouterText } from '@tanstack/ai-openrouter'
+import type { openRouterText } from '@tanstack/ai-openrouter'
 
 export const DEFAULT_LOOKBACK = 90
 export const HOTEL_DEFAULT_LEAD_TIME = 3
@@ -8,9 +8,10 @@ export const MODEL = (process.env.OPENROUTER_MODEL ?? 'nvidia/nemotron-3-ultra-5
   typeof openRouterText
 >[0]
 
-// Vision-capable model for image extraction (menu reader). The text MODEL above
-// is not multimodal, so the vision path needs its own override. Default is a
-// free vision model for local smoke tests; production points this at a capable
-// Claude vision model via env (e.g. anthropic/claude-sonnet-4) — no code change.
+// Vision-capable model for image extraction (menu reader). Prefer the explicit
+// vision override, then the app-wide OpenRouter model. The default is a current
+// Claude vision-capable model instead of a weaker free text model so a clear
+// menu image does not get mislabeled as unreadable.
 export const VISION_MODEL = (process.env.OPENROUTER_VISION_MODEL ??
-  'nex-agi/nex-n2-pro:free') as Parameters<typeof openRouterText>[0]
+  process.env.OPENROUTER_MODEL ??
+  'anthropic/claude-sonnet-4.5') as Parameters<typeof openRouterText>[0]

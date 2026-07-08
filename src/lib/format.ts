@@ -48,6 +48,35 @@ export function formatQuantity(value: number | string): string {
   return Number.isInteger(num) ? String(num) : num.toFixed(2)
 }
 
+export function formatRecentTimestamp(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date
+  const now = new Date()
+  const isToday =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+
+  if (isToday) return formatTime(d)
+
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  const isYesterday =
+    d.getFullYear() === yesterday.getFullYear() &&
+    d.getMonth() === yesterday.getMonth() &&
+    d.getDate() === yesterday.getDate()
+
+  if (isYesterday) return `Yesterday, ${formatTime(d)}`
+
+  const options: Intl.DateTimeFormatOptions = {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  }
+  if (d.getFullYear() !== now.getFullYear()) options.year = 'numeric'
+
+  return `${new Intl.DateTimeFormat('en-US', options).format(d)}, ${formatTime(d)}`
+}
+
 export function formatParPerGuest(row: {
   parPerGuest: string | null
   parPerGuestUnit: string | null

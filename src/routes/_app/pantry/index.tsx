@@ -2,17 +2,21 @@ import { createFileRoute } from '@tanstack/react-router'
 import { PantryPage } from '@/components/features/pantry/pantry-page'
 import { PantrySkeleton } from '@/components/skeletons/pantry-skeleton'
 import {
-  getPantryStatsOptions,
   getCategoriesOptions,
   getInventoryItemsOptions,
+  getPantryStatsOptions,
 } from '@/lib/query-manager/pantry/options'
-import { normalizePantryItemsParams } from '@/lib/query-manager/pantry/keys'
+import {
+  normalizePantryItemsParams,
+  normalizePantryStockStatus,
+} from '@/lib/query-manager/pantry/keys'
 
 export const Route = createFileRoute('/_app/pantry/')({
   validateSearch: (s: Record<string, unknown>) => ({
     page: Number(s.page ?? 1),
     category: (s.category as string) || undefined,
     sortBy: (s.sortBy as string) || undefined,
+    stockStatus: normalizePantryStockStatus(s.stockStatus ?? s.status),
     q: (s.q as string) || undefined,
   }),
   loaderDeps: ({ search }) => ({
@@ -20,6 +24,7 @@ export const Route = createFileRoute('/_app/pantry/')({
     page: search.page,
     category: search.category,
     sortBy: search.sortBy,
+    stockStatus: search.stockStatus,
     q: search.q,
   }),
   loader: async ({ context: { queryClient }, deps }) => {

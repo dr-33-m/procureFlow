@@ -123,14 +123,20 @@ export type DashboardStats = {
   activeListsValue: number
 }
 
+export type RecentListActivityType = 'shopping_list' | 'issuance' | 'reconciliation'
+
 export type RecentListActivity = {
   id: string
+  type: RecentListActivityType
+  label: string
   name: string
+  detail: string
   modifiedBy: string
   modifiedAt: Date
   value: string
   status: string
-  priority: string
+  priority: string | null
+  unit: string | null
 }
 
 export type IssuanceItem = {

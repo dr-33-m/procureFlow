@@ -1,23 +1,24 @@
 import { createServerFn } from '@tanstack/react-start'
 import { chat, maxIterations } from '@tanstack/ai'
 import { openRouterText } from '@tanstack/ai-openrouter'
+import type {
+  AIChatMessage,
+  AIShoppingListSuggestion,
+  AISuggestedItem,
+  AIToolCallInfo,
+} from '@/types'
 import { getAuthContext } from '@/server/auth/context'
 import { MODEL } from '@/server/ai/constants'
 import { parseAIError } from '@/server/ai/errors'
 import { SYSTEM_PROMPT } from '@/server/ai/system-prompt'
 import { createTools } from '@/server/ai/tool-implementations'
-import type {
-  AIChatMessage,
-  AIToolCallInfo,
-  AISuggestedItem,
-  AIShoppingListSuggestion,
-} from '@/types'
+import { extractToolResultObject } from '@/server/ai/tool-result'
 
 export const aiShoppingChat = createServerFn({ method: 'POST' })
   .inputValidator(
     (data: {
       branchId: string
-      messages: AIChatMessage[]
+      messages: Array<AIChatMessage>
       context?: {
         existingItems?: Array<{ productId: string; productName: string; quantity: number }>
         periodType?: string
@@ -35,11 +36,11 @@ export const aiShoppingChat = createServerFn({ method: 'POST' })
     const tools = createTools(branchId)
 
     // Build the message list with system prompt
-    const chatMessages: AIChatMessage[] = [{ role: 'system', content: SYSTEM_PROMPT }]
+    const chatMessages: Array<AIChatMessage> = [{ role: 'system', content: SYSTEM_PROMPT }]
 
     // Inject context as a system message if provided
     if (context) {
-      const contextParts: string[] = []
+      const contextParts: Array<string> = []
       if (context.expectedGuestCount)
         contextParts.push(`Expected guest count: ${context.expectedGuestCount}`)
       if (context.periodDays) contextParts.push(`Period: ${context.periodDays} days`)
@@ -68,7 +69,7 @@ export const aiShoppingChat = createServerFn({ method: 'POST' })
       if (m.role === 'system') {
         return { role: 'user' as const, content: `[System Instructions]\n${m.content}` }
       }
-      return { role: m.role as 'user' | 'assistant', content: m.content }
+      return { role: m.role, content: m.content }
     })
 
     // Run the agentic chat — collect full response
@@ -81,11 +82,36 @@ export const aiShoppingChat = createServerFn({ method: 'POST' })
       })
 
       let responseText = ''
-      const toolCalls: AIToolCallInfo[] = []
+      const toolCalls: Array<AIToolCallInfo> = []
       let suggestion: AIShoppingListSuggestion | null = null
 
       // Track in-flight tool calls
       const pendingToolCalls = new Map<string, { name: string; args: string }>()
+      const toolCallsById = new Map<string, AIToolCallInfo>()
+
+      const applyToolResult = (
+        toolCallId: string | undefined,
+        result: Record<string, unknown> | null,
+      ) => {
+        if (!result) return
+
+        const call =
+          (toolCallId ? toolCallsById.get(toolCallId) : undefined) ??
+          toolCalls.find((tc) => tc.output === null)
+        if (call) call.output = result
+
+        // Check if this is a generate_shopping_list result
+        if (result.accepted && Array.isArray(result.items)) {
+          suggestion = {
+            summary: typeof result.summary === 'string' ? result.summary : '',
+            items: result.items as Array<AISuggestedItem>,
+            totalEstimatedCost:
+              typeof result.totalEstimatedCost === 'number'
+                ? result.totalEstimatedCost
+                : 0,
+          }
+        }
+      }
 
       for await (const chunk of stream) {
         switch (chunk.type) {
@@ -115,28 +141,20 @@ export const aiShoppingChat = createServerFn({ method: 'POST' })
                 input: parsedInput,
                 output: null,
               })
+              const call = toolCalls.at(-1)
+              if (call) {
+                toolCallsById.set(chunk.toolCallId, call)
+                applyToolResult(chunk.toolCallId, extractToolResultObject(chunk))
+              }
               pendingToolCalls.delete(chunk.toolCallId)
             }
             break
           }
-          case 'TOOL_RESULT': {
-            // Match tool result to a tool call and check for shopping list generation
-            const call = toolCalls.find(
-              (tc) => tc.output === null && tc.name === (chunk as { toolName?: string }).toolName,
+          case 'TOOL_CALL_RESULT': {
+            applyToolResult(
+              (chunk as { toolCallId?: string }).toolCallId,
+              extractToolResultObject(chunk),
             )
-            if (call) {
-              call.output = chunk.result as Record<string, unknown>
-            }
-
-            // Check if this is a generate_shopping_list result
-            const result = chunk.result as Record<string, unknown> | null
-            if (result && result.accepted && Array.isArray(result.items)) {
-              suggestion = {
-                summary: (result.summary as string) ?? '',
-                items: (result.items as AISuggestedItem[]) ?? [],
-                totalEstimatedCost: (result.totalEstimatedCost as number) ?? 0,
-              }
-            }
             break
           }
         }

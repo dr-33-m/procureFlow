@@ -149,7 +149,10 @@ export const createMenusFromRecipes = createServerFn({ method: 'POST' })
 
     // Structure free-text recipes into products + linked ingredients. keepZeroQty
     // so an ingredient named without a quantity still attaches to the dish.
-    const structured = await structureRecipes(data.menus, data.dishes, { keepZeroQty: true })
+    const structured = await structureRecipes(data.menus, data.dishes, {
+      keepZeroQty: true,
+      fallbackOnError: true,
+    })
 
     // 1. Bare products (resolve against existing by name; create with unit model
     //    only — no par/pricing/stock).

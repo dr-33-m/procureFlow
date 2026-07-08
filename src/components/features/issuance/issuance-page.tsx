@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react'
-import { getRouteApi, Link } from '@tanstack/react-router'
-import { ExternalLink, EggFried, TrendingUp } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Link, getRouteApi } from '@tanstack/react-router'
+import { EggFried, ExternalLink, TrendingUp } from 'lucide-react'
 import { IssuanceFilters } from './issuance-filters'
 import { IssuanceTable } from './issuance-table'
 import { DeductionCart } from './deduction-cart'
 import { AIIssuanceDrawer } from './ai-issuance-drawer'
+import { Button } from '@/components/ui/button'
 import { useInventoryForIssuance, useRecentIssuances, useTodayIssuanceStats } from '@/hooks/use-issuance'
 import { usePermissions } from '@/hooks/use-permissions'
-import { formatQuantity, formatTime } from '@/lib/format'
+import { formatQuantity, formatRecentTimestamp } from '@/lib/format'
 
 const routeApi = getRouteApi('/_app/issuance/')
 
@@ -101,7 +101,7 @@ export function IssuancePage() {
                 <div>
                   <p className="text-sm font-medium">{issuance.productName}</p>
                   <p className="text-xs text-muted-foreground">
-                    {issuance.station ?? 'Unknown'} · {formatTime(issuance.createdAt)}
+                    {issuance.station ?? 'Unknown'} · {formatRecentTimestamp(issuance.createdAt)}
                   </p>
                 </div>
                 <span className="text-sm font-semibold text-red-600">

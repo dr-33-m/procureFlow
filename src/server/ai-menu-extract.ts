@@ -1,6 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
-import { chat, maxIterations } from '@tanstack/ai'
+import { chat } from '@tanstack/ai'
 import { openRouterText } from '@tanstack/ai-openrouter'
+import { z } from 'zod'
 import type { ContentPart } from '@tanstack/ai'
 import type { MenuDraft } from '@/lib/menu-extract'
 import { coerceMenuDraft } from '@/lib/menu-extract'
@@ -8,7 +9,26 @@ import { getAuthContext, requireRole } from '@/server/auth/context'
 import { VISION_MODEL } from '@/server/ai/constants'
 import { parseAIError } from '@/server/ai/errors'
 import { MENU_EXTRACT_SYSTEM_PROMPT } from '@/server/ai/menu-extract/system-prompt'
-import { createMenuExtractTools } from '@/server/ai/menu-extract/tool-implementations'
+
+const MenuExtractOutputSchema = z.object({
+  menus: z.array(
+    z.object({
+      tempId: z.string(),
+      name: z.string(),
+      mealType: z.enum(['breakfast', 'lunch', 'dinner', 'drinks', 'event']),
+      eventTag: z.string().nullable().optional(),
+    }),
+  ),
+  dishes: z.array(
+    z.object({
+      menuRef: z.string(),
+      name: z.string(),
+      defaultServingsPerGuest: z.number().optional().default(1),
+      ingredients: z.array(z.string()).optional().default([]),
+      recipe: z.string().optional(),
+    }),
+  ),
+})
 
 // Read menu image(s) into an editable menu/dish/recipe draft. One-shot, non-
 // streaming, no DB writes: the user reviews the draft, fills in quantities the
@@ -30,20 +50,19 @@ export const extractMenuFromImages = createServerFn({ method: 'POST' })
       {
         type: 'text',
         content:
-          'Read the attached menu image(s) and call propose_menu_draft exactly once with every menu and dish you can see.',
+          'Read the attached menu image(s) and return every menu and dish you can see.',
       },
       ...images.map(
         (img): ContentPart => ({
           type: 'image',
           source: { type: 'data', value: img.data, mimeType: img.mimeType },
+          metadata: { detail: 'high' },
         }),
       ),
     ]
 
-    const tools = createMenuExtractTools()
-
     try {
-      const stream = chat({
+      const result = await chat({
         adapter: openRouterText(VISION_MODEL),
         systemPrompts: [MENU_EXTRACT_SYSTEM_PROMPT],
         // VISION_MODEL is an env-driven cast (see constants.ts), so the adapter's
@@ -51,28 +70,13 @@ export const extractMenuFromImages = createServerFn({ method: 'POST' })
         // runtime shape (text + image data parts) is exactly what the openrouter
         // adapter maps to image_url, so cast past the over-strict content type.
         messages: [{ role: 'user', content: content as never }],
-        tools,
-        agentLoopStrategy: maxIterations(3),
+        outputSchema: MenuExtractOutputSchema,
+        modelOptions: { maxCompletionTokens: 4096 } as never,
       })
 
-      let draft: MenuDraft | null = null
-      let runError: unknown = null
+      const draft = coerceMenuDraft(result as Record<string, unknown>)
 
-      for await (const chunk of stream) {
-        if (chunk.type === 'RUN_ERROR') runError = chunk
-        if (chunk.type === 'TOOL_RESULT') {
-          const result = chunk.result as Record<string, unknown> | null
-          if (result && result.accepted) {
-            draft = coerceMenuDraft(result)
-          }
-        }
-      }
-
-      // A provider error (rate limit, outage, …) arrives as a RUN_ERROR chunk,
-      // not a throw — surface it accurately instead of blaming the image.
-      if (runError) throw new Error(parseAIError(runError))
-
-      if (!draft || draft.menus.length === 0) {
+      if (draft.menus.length === 0) {
         throw new Error(
           "Couldn't read a menu from that image — try a clearer photo, or enter the menu manually.",
         )

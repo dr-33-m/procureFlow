@@ -43,13 +43,19 @@ interface InventoryTableProps {
 }
 
 export function InventoryTable({ onEdit }: InventoryTableProps) {
-  const { page, category, sortBy, q } = routeApi.useSearch()
+  const { page, category, sortBy, stockStatus, q } = routeApi.useSearch()
   const navigate = useNavigate({ from: '/pantry/' })
   const deleteMutation = useDeleteInventoryItem()
   const [pendingDelete, setPendingDelete] = useState<InventoryWithProduct | null>(null)
 
   // Shared normalizer so this query key matches the route loader's prefetch.
-  const params = normalizePantryItemsParams({ page, category, sortBy, q })
+  const params = normalizePantryItemsParams({
+    page,
+    category,
+    sortBy,
+    stockStatus,
+    q,
+  })
 
   const { data, isPlaceholderData } = useInventoryItems(params)
   const items = data?.items ?? []

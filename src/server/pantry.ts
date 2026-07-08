@@ -69,22 +69,50 @@ export const getInventoryItems = createServerFn({ method: 'GET' })
       pageSize: number
       category: string
       sortBy: string
+      stockStatus?: 'all' | 'attention' | 'low' | 'out'
       q?: string
     }) => params,
   )
   .handler(async ({ data }) => {
     await getAuthContext()
     const { branchId, page, pageSize, category, sortBy, q } = data
+    const stockStatus =
+      data.stockStatus === 'attention' ||
+      data.stockStatus === 'low' ||
+      data.stockStatus === 'out'
+        ? data.stockStatus
+        : 'all'
     const offset = (page - 1) * pageSize
 
     const conditions = [eq(inventory.branchId, branchId)]
     if (category && category !== 'all') conditions.push(eq(products.category, category))
     if (q) conditions.push(ilike(products.name, `%${q}%`))
+    if (stockStatus === 'attention') {
+      conditions.push(sql`${inventory.quantity}::numeric <= ${LOW_STOCK_THRESHOLD}`)
+    }
+    if (stockStatus === 'low') {
+      conditions.push(
+        sql`${inventory.quantity}::numeric > 0 and ${inventory.quantity}::numeric <= ${LOW_STOCK_THRESHOLD}`,
+      )
+    }
+    if (stockStatus === 'out') {
+      conditions.push(sql`${inventory.quantity}::numeric = 0`)
+    }
 
-    const orderBy =
+    const quantityValue = sql<number>`${inventory.quantity}::numeric`
+    const urgentStockRank = sql<number>`case
+      when ${inventory.quantity}::numeric = 0 then 0
+      when ${inventory.quantity}::numeric <= ${LOW_STOCK_THRESHOLD} then 1
+      else 2
+    end`
+    const primaryOrder =
       sortBy === 'quantity'
-        ? desc(sql`${inventory.quantity}::numeric`)
+        ? desc(quantityValue)
         : asc(products.name)
+    const orderBy =
+      stockStatus === 'all'
+        ? [primaryOrder]
+        : [asc(urgentStockRank), asc(quantityValue), primaryOrder]
 
     const [countResult, rows] = await Promise.all([
       db
@@ -116,7 +144,7 @@ export const getInventoryItems = createServerFn({ method: 'GET' })
         .from(inventory)
         .leftJoin(products, eq(inventory.productId, products.id))
         .where(and(...conditions))
-        .orderBy(orderBy)
+        .orderBy(...orderBy)
         .limit(pageSize)
         .offset(offset),
     ])

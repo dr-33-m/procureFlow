@@ -1,10 +1,19 @@
 import { createServerFn } from '@tanstack/react-start'
-import { db, inventory, shoppingLists, products, users } from '@/db'
-import { eq, and, desc, inArray } from 'drizzle-orm'
-import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
-import { pricePerStockUnit, type ProductPricing } from '@/server/lib/pricing'
-import { getAuthContext } from '@/server/auth/context'
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { DashboardStats, RecentListActivity } from '@/types'
+import type { ProductPricing } from '@/server/lib/pricing'
+import {
+  db,
+  inventory,
+  inventoryTransactions,
+  kitchenReconciliations,
+  products,
+  shoppingLists,
+  users,
+} from '@/db'
+import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
+import { pricePerStockUnit } from '@/server/lib/pricing'
+import { getAuthContext } from '@/server/auth/context'
 
 export const getDashboardStats = createServerFn({ method: 'GET' })
   .inputValidator((branchId: string) => branchId)
@@ -98,33 +107,143 @@ export const getDashboardStats = createServerFn({ method: 'GET' })
 
 export const getRecentListActivity = createServerFn({ method: 'GET' })
   .inputValidator((branchId: string) => branchId)
-  .handler(async ({ data: branchId }): Promise<RecentListActivity[]> => {
+  .handler(async ({ data: branchId }): Promise<Array<RecentListActivity>> => {
     await getAuthContext()
 
-    const rows = await db
-      .select({
-        id: shoppingLists.id,
-        name: shoppingLists.name,
-        status: shoppingLists.status,
-        priority: shoppingLists.priority,
-        totalValue: shoppingLists.totalValue,
-        updatedAt: shoppingLists.updatedAt,
-        createdAt: shoppingLists.createdAt,
-        creatorName: users.name,
-      })
-      .from(shoppingLists)
-      .leftJoin(users, eq(shoppingLists.createdBy, users.id))
-      .where(eq(shoppingLists.branchId, branchId))
-      .orderBy(desc(shoppingLists.createdAt))
-      .limit(10)
+    const shoppingListActivityAt = sql<Date>`GREATEST(
+      ${shoppingLists.createdAt},
+      COALESCE(${shoppingLists.updatedAt}, ${shoppingLists.createdAt}),
+      COALESCE(${shoppingLists.completedAt}, ${shoppingLists.createdAt})
+    )`
 
-    return rows.map((r) => ({
-      id: r.id,
-      name: r.name,
-      modifiedBy: r.creatorName ?? 'Unknown',
-      modifiedAt: r.updatedAt ?? r.createdAt,
-      value: r.totalValue ?? '0',
-      status: r.status,
-      priority: r.priority,
-    }))
+    const [listRows, issuanceRows, reconciliationRows] = await Promise.all([
+      db
+        .select({
+          id: shoppingLists.id,
+          name: shoppingLists.name,
+          status: shoppingLists.status,
+          priority: shoppingLists.priority,
+          totalValue: shoppingLists.totalValue,
+          updatedAt: shoppingLists.updatedAt,
+          createdAt: shoppingLists.createdAt,
+          completedAt: shoppingLists.completedAt,
+          activityAt: shoppingListActivityAt,
+          creatorName: users.name,
+        })
+        .from(shoppingLists)
+        .leftJoin(users, eq(shoppingLists.createdBy, users.id))
+        .where(eq(shoppingLists.branchId, branchId))
+        .orderBy(desc(shoppingListActivityAt))
+        .limit(10),
+      db
+        .select({
+          id: inventoryTransactions.id,
+          quantityStock: inventoryTransactions.quantityStock,
+          method: inventoryTransactions.method,
+          station: inventoryTransactions.station,
+          createdAt: inventoryTransactions.createdAt,
+          productName: products.name,
+          stockUnit: products.stockUnit,
+          createdByName: users.name,
+        })
+        .from(inventoryTransactions)
+        .leftJoin(products, eq(inventoryTransactions.productId, products.id))
+        .leftJoin(users, eq(inventoryTransactions.createdBy, users.id))
+        .where(
+          and(
+            eq(inventoryTransactions.branchId, branchId),
+            eq(inventoryTransactions.type, 'ISSUE'),
+          ),
+        )
+        .orderBy(desc(inventoryTransactions.createdAt))
+        .limit(10),
+      db
+        .select({
+          id: kitchenReconciliations.id,
+          serviceDate: kitchenReconciliations.serviceDate,
+          mealType: kitchenReconciliations.mealType,
+          eventTag: kitchenReconciliations.eventTag,
+          actualGuestCount: kitchenReconciliations.actualGuestCount,
+          actualServings: kitchenReconciliations.actualServings,
+          reportedAt: kitchenReconciliations.reportedAt,
+          createdByName: users.name,
+        })
+        .from(kitchenReconciliations)
+        .leftJoin(users, eq(kitchenReconciliations.createdBy, users.id))
+        .where(eq(kitchenReconciliations.branchId, branchId))
+        .orderBy(desc(kitchenReconciliations.reportedAt))
+        .limit(10),
+    ])
+
+    const listActivities: Array<RecentListActivity> = listRows.map((r) => {
+      const wasCompleted = r.status === 'completed' && !!r.completedAt
+      const wasUpdated = !!r.updatedAt
+
+      return {
+        id: r.id,
+        type: 'shopping_list',
+        label: wasCompleted
+          ? 'Shopping list completed'
+          : wasUpdated
+            ? 'Shopping list updated'
+            : 'Shopping list created',
+        name: r.name,
+        detail: `Priority: ${r.priority}`,
+        modifiedBy: r.creatorName ?? 'Unknown',
+        modifiedAt: r.activityAt,
+        value: r.totalValue ?? '0',
+        status: r.status,
+        priority: r.priority,
+        unit: null,
+      }
+    })
+
+    const issuanceActivities: Array<RecentListActivity> = issuanceRows.map((r) => {
+      const quantity = Math.abs(parseFloat(r.quantityStock)).toString()
+      const station = r.station?.trim() || 'kitchen'
+
+      return {
+        id: r.id,
+        type: 'issuance',
+        label: 'ISSUE transaction',
+        name: r.productName ?? 'Unknown product',
+        detail: `Issued to ${station} via ${r.method}`,
+        modifiedBy: r.createdByName ?? 'System',
+        modifiedAt: r.createdAt,
+        value: quantity,
+        status: 'issued',
+        priority: null,
+        unit: r.stockUnit ?? null,
+      }
+    })
+
+    const reconciliationActivities: Array<RecentListActivity> = reconciliationRows.map((r) => {
+      const meal = r.mealType
+      const event = r.eventTag ? ` · ${r.eventTag}` : ''
+
+      return {
+        id: r.id,
+        type: 'reconciliation',
+        label: 'Kitchen reconciliation',
+        name: `${meal.charAt(0).toUpperCase()}${meal.slice(1)} close-out`,
+        detail: `${r.actualGuestCount} guests · ${r.actualServings} servings${event}`,
+        modifiedBy: r.createdByName ?? 'System',
+        modifiedAt: r.reportedAt,
+        value: r.actualServings.toString(),
+        status: 'reconciled',
+        priority: null,
+        unit: 'servings',
+      }
+    })
+
+    return [
+      ...listActivities,
+      ...issuanceActivities,
+      ...reconciliationActivities,
+    ]
+      .sort(
+        (a, b) =>
+          new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime(),
+      )
+      .slice(0, 10)
   })
