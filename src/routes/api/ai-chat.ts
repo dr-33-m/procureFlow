@@ -4,7 +4,7 @@ import { openRouterText } from '@tanstack/ai-openrouter'
 import { MODEL } from '@/server/ai/constants'
 import { SYSTEM_PROMPT } from '@/server/ai/system-prompt'
 import { createTools } from '@/server/ai/tool-implementations'
-import { getAuthContext } from '@/server/auth/context'
+import { getAuthContext, validateBranchAccess } from '@/server/auth/context'
 
 export const Route = createFileRoute('/api/ai-chat')({
   server: {
@@ -21,20 +21,16 @@ export const Route = createFileRoute('/api/ai-chat')({
           )
         }
 
-        console.log('[ai-chat] body keys:', Object.keys(body))
-        console.log('[ai-chat] branchId:', body.branchId)
-        console.log(
-          '[ai-chat] messages count:',
-          Array.isArray(body.messages) ? body.messages.length : 'not array',
-        )
-        if (Array.isArray(body.messages) && body.messages[0]) {
-          console.log('[ai-chat] first message keys:', Object.keys(body.messages[0] as object))
-        }
-
         const messages = body.messages as Array<Record<string, unknown>>
-        // branchId/context come from fetchServerSentEvents body spread
-        const branchId = (body.branchId ?? '') as string
-        const context = body.context as {
+
+        // The @tanstack/ai-client SSE adapter nests the connection's custom
+        // `body` under `forwardedProps` (mirrored as `data`), NOT at the top
+        // level — only `messages` is written top-level. Read from there.
+        const fwd = (body.forwardedProps ?? body.data ?? {}) as Record<
+          string,
+          unknown
+        >
+        const context = (fwd.context ?? body.context) as {
           existingItems?: Array<{
             productId: string
             productName: string
@@ -47,9 +43,32 @@ export const Route = createFileRoute('/api/ai-chat')({
           avgDailyGuests?: number
         } | undefined
 
+        // Get authenticated user for tool operations (e.g. creating lists) and
+        // to resolve/authorize the branch server-side.
+        const authCtx = await getAuthContext().catch(() => null)
+        const userId = authCtx?.userId
+
+        // Prefer the client-selected branch, fall back to the user's default.
+        let branchId = (fwd.branchId ?? body.branchId ?? '') as string
+        if (!branchId) branchId = authCtx?.defaultBranchId ?? ''
+
         if (!branchId) {
-          console.warn('[ai-chat] No branchId provided, tools may fail')
+          return Response.json(
+            { error: 'No branch selected' },
+            { status: 400 },
+          )
         }
+
+        // Authorize the branch when we have an authenticated user.
+        if (authCtx) {
+          try {
+            await validateBranchAccess(authCtx, branchId)
+          } catch {
+            return Response.json({ error: 'Forbidden' }, { status: 403 })
+          }
+        }
+
+        console.log('[ai-chat] resolved branchId:', branchId)
 
         // Build system prompts array
         const systemPrompts: string[] = [SYSTEM_PROMPT]
@@ -79,15 +98,6 @@ export const Route = createFileRoute('/api/ai-chat')({
               `Current editor context:\n${contextParts.join('\n')}`,
             )
           }
-        }
-
-        // Get authenticated user for tool operations (e.g. creating lists)
-        let userId: string | undefined
-        try {
-          const authCtx = await getAuthContext()
-          userId = authCtx.userId
-        } catch {
-          // Allow unauthenticated access for read-only tools
         }
 
         const tools = createTools(branchId, userId)

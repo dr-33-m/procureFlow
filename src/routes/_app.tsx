@@ -36,13 +36,24 @@ export const Route = createFileRoute('/_app')({
     }
 
     // Ensure the active branch is present in the URL so loaders can prefetch
-    // branch-scoped data. Default to the user's home branch.
-    if (!search.branch && result.user.defaultBranchId) {
-      throw redirect({
-        to: location.pathname,
-        search: { ...search, branch: result.user.defaultBranchId },
-        replace: true,
-      })
+    // branch-scoped data. Prefer the user's home branch; fall back to the first
+    // company branch (owners/admins may have no default set). If the company
+    // has no branches at all, render without a branch param.
+    if (!search.branch) {
+      let branchId = result.user.defaultBranchId
+      if (!branchId) {
+        const branches = await context.queryClient.ensureQueryData(
+          getCompanyBranchesOptions(),
+        )
+        branchId = branches[0]?.id ?? ''
+      }
+      if (branchId) {
+        throw redirect({
+          to: location.pathname,
+          search: { ...search, branch: branchId },
+          replace: true,
+        })
+      }
     }
 
     // Session data is fully populated for an authenticated, onboarded user.

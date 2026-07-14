@@ -15,3 +15,6 @@ todos.json
 
 # Local inventory CSVs (per-user fixtures, not part of the platform)
 src/assets/*.csv
+
+# Local video recordings (not part of the platform)
+videos/
