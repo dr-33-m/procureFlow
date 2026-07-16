@@ -21,6 +21,14 @@ export const Route = createFileRoute('/api/ai-kitchen')({
         const messages = body.messages as Array<Record<string, unknown>>
         const branchId = (body.branchId ?? '') as string
 
+        const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+        if (!branchId || !UUID_RE.test(branchId)) {
+          return Response.json(
+            { error: 'Missing or invalid branchId' },
+            { status: 400 },
+          )
+        }
+
         try {
           const auth = await getAuthContext()
           if (!['owner', 'admin', 'chef'].includes(auth.userRole)) {

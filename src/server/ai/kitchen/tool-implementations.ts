@@ -6,8 +6,13 @@ import {
   draftReconciliationDef,
 } from './tool-definitions'
 
+function escapeRegExp(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 export function createKitchenTools(branchId: string) {
   const getKitchenStockTool = getKitchenStockDef.server(async (args: unknown) => {
+    if (!branchId) return { itemCount: 0, items: [] }
     const { status } = args as { status?: 'pending' | 'partial' | 'all' }
 
     const conditions = [eq(kitchenStock.branchId, branchId)]
@@ -74,6 +79,7 @@ export function createKitchenTools(branchId: string) {
   })
 
   const matchProduct = matchProductDef.server(async (args: unknown) => {
+    if (!branchId) return { matches: [] }
     const { description } = args as { description: string }
     const q = description.trim().toLowerCase()
     if (!q) return { matches: [] }
@@ -119,7 +125,7 @@ export function createKitchenTools(branchId: string) {
       .map((r) => {
         const name = r.name.toLowerCase()
         const startsWith = name.startsWith(q)
-        const wordStart = new RegExp(`(^|\\s)${q}`, 'i').test(r.name)
+        const wordStart = new RegExp(`(^|\\s)${escapeRegExp(q)}`, 'i').test(r.name)
         return {
           ...r,
           score: (startsWith ? 100 : 0) + (wordStart ? 50 : 0) - r.name.length,
