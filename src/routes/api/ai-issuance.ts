@@ -19,8 +19,13 @@ export const Route = createFileRoute('/api/ai-issuance')({
         }
 
         const messages = body.messages as Array<Record<string, unknown>>
-        const branchId = (body.branchId ?? '') as string
-        const context = body.context as
+
+        // The @tanstack/ai-client SSE adapter nests the connection's custom
+        // `body` under `forwardedProps` (mirrored as `data`), NOT at the top
+        // level — only `messages` is written top-level. Read from there.
+        const fwd = (body.forwardedProps ?? body.data ?? {}) as Record<string, unknown>
+        const branchId = (fwd.branchId ?? body.branchId ?? '') as string
+        const context = (fwd.context ?? body.context) as
           | {
               expectedGuestCount?: number
               days?: number

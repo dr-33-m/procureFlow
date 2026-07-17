@@ -19,7 +19,12 @@ export const Route = createFileRoute('/api/ai-kitchen')({
         }
 
         const messages = body.messages as Array<Record<string, unknown>>
-        const branchId = (body.branchId ?? '') as string
+
+        // The @tanstack/ai-client SSE adapter nests the connection's custom
+        // `body` under `forwardedProps` (mirrored as `data`), NOT at the top
+        // level — only `messages` is written top-level. Read from there.
+        const fwd = (body.forwardedProps ?? body.data ?? {}) as Record<string, unknown>
+        const branchId = (fwd.branchId ?? body.branchId ?? '') as string
 
         const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
         if (!branchId || !UUID_RE.test(branchId)) {
